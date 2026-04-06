@@ -55,8 +55,17 @@ async def sync_request_to_sheets(req):
         return
 
     import asyncio
+    from zoneinfo import ZoneInfo
+    from datetime import timezone
     
-    date_str = req.created_at.strftime("%Y-%m-%d %H:%M:%S") if req.created_at else ""
+    if req.created_at:
+        dt = req.created_at
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        dt_tashkent = dt.astimezone(ZoneInfo("Asia/Tashkent"))
+        date_str = dt_tashkent.strftime("%Y-%m-%d %H:%M:%S")
+    else:
+        date_str = ""
     row = [
         date_str,
         req.request_number,

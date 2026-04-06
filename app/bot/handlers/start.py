@@ -21,8 +21,11 @@ async def cmd_start(message: Message, state: FSMContext, session: AsyncSession):
     # Сбрасываем любые стейты
     await state.clear()
     
+    from aiogram.types import ReplyKeyboardRemove
+    
     await message.answer(
         "👋 Добро пожаловать!\nДля работы с системой заявок на ИТ-технику, пожалуйста, введите ваш **5-значный BXM код** филиала:",
+        reply_markup=ReplyKeyboardRemove(),
         parse_mode="Markdown"
     )
     await state.set_state(RegistrationForm.waiting_for_bhm)

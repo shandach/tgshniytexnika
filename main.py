@@ -33,6 +33,8 @@ def get_bot_and_dp():
 
 bot, dp = None, None
 
+from aiogram.types import BotCommand
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Управление жизненным циклом (запуск бота параллельно с FastAPI)."""
@@ -41,6 +43,12 @@ async def lifespan(app: FastAPI):
     
     # Startup
     logger.info("Starting Telegram Bot...")
+    
+    # Установка меню команд
+    await bot.set_my_commands([
+        BotCommand(command="start", description="Начать работу / Сменить филиал")
+    ])
+    
     await bot.delete_webhook(drop_pending_updates=True)
     polling_task = asyncio.create_task(dp.start_polling(bot))
     
