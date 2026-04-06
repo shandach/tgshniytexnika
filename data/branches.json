@@ -1,0 +1,32 @@
+[
+    {
+        "bhm_code": "00190",
+        "branch_name": "Головной офис",
+        "region_name": "Тошкент шаҳри",
+        "city_name": "Тошкент"
+    },
+    {
+        "bhm_code": "01045",
+        "branch_name": "Чиланзар филиали",
+        "region_name": "Тошкент шаҳри",
+        "city_name": "Тошкент"
+    },
+    {
+        "bhm_code": "01137",
+        "branch_name": "Мирзо Улуғбек филиали",
+        "region_name": "Тошкент шаҳри",
+        "city_name": "Тошкент"
+    },
+    {
+        "bhm_code": "02015",
+        "branch_name": "Самарқанд филиали",
+        "region_name": "Самарқанд вилояти",
+        "city_name": "Самарқанд"
+    },
+    {
+        "bhm_code": "03022",
+        "branch_name": "Бухоро филиали",
+        "region_name": "Бухоро вилояти",
+        "city_name": "Бухоро"
+    }
+]
