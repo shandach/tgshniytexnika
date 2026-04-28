@@ -1,0 +1,532 @@
+"""
+L1 Reviewer handler — обработка заявок проверяющим первого уровня.
+
+UX v2: динамическое меню, компактные карточки, пагинация, подтверждение
+массовых действий.
+"""
+
+import logging
+from datetime import datetime, timezone
+
+from aiogram import Router, F
+from aiogram.filters import Command
+from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
+from sqlalchemy import select, func, and_
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.bot.filters import IsReviewerL1
+from app.bot.keyboards.default import get_reviewer_l1_menu_kb
+from app.models.request import Request, RequestStatus, FinalDecision, RequestType
+
+logger = logging.getLogger(__name__)
+router = Router()
+
+# ── Константы ────────────────────────────────────────────────────────────
+TYPE_LABELS = {"replacement": "Замена", "new_issue": "Новая выдача", "repair": "Поломка"}
+TYPE_ICONS = {"replacement": "🔴", "new_issue": "🟡", "repair": "🔵"}
+EQUIP_LABELS = {"computer": "ПК", "printer": "Принтер"}
+PRIORITY_HOURS = 24
+
+
+# ── Утилиты ──────────────────────────────────────────────────────────────
+
+def _age_short(created_at: datetime) -> str:
+    """Короткая метка давности."""
+    now = datetime.now(timezone.utc)
+    ca = created_at.replace(tzinfo=timezone.utc) if created_at.tzinfo is None else created_at
+    delta = now - ca
+    hours = delta.total_seconds() / 3600
+    if hours > 48:
+        return f"{int(hours // 24)}д"
+    return f"{int(hours)}ч"
+
+
+def _is_priority(created_at: datetime) -> bool:
+    now = datetime.now(timezone.utc)
+    ca = created_at.replace(tzinfo=timezone.utc) if created_at.tzinfo is None else created_at
+    return (now - ca).total_seconds() > PRIORITY_HOURS * 3600
+
+
+async def _get_new_requests(session: AsyncSession):
+    stmt = (
+        select(Request)
+        .where(Request.status == RequestStatus.new)
+        .order_by(Request.created_at.asc())
+    )
+    return (await session.scalars(stmt)).all()
+
+
+async def _get_new_by_branch(session: AsyncSession, bhm_code: str):
+    stmt = (
+        select(Request)
+        .where(and_(Request.status == RequestStatus.new, Request.bhm_code_snapshot == bhm_code))
+        .order_by(Request.created_at.asc())
+    )
+    return (await session.scalars(stmt)).all()
+
+
+def _sorted_by_priority(requests):
+    """Приоритетные (старые) сверху."""
+    priority = [r for r in requests if _is_priority(r.created_at)]
+    normal = [r for r in requests if not _is_priority(r.created_at)]
+    return priority + normal
+
+
+async def _safe_edit(callback: CallbackQuery, text: str, kb, parse_mode="Markdown"):
+    """edit_text с защитой от 'message is not modified'."""
+    try:
+        await callback.message.edit_text(text, reply_markup=kb, parse_mode=parse_mode)
+    except Exception:
+        try:
+            await callback.message.delete()
+        except Exception:
+            pass
+        await callback.message.answer(text, reply_markup=kb, parse_mode=parse_mode)
+    await callback.answer()
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# РЕЖИМ 1: ОЧЕРЕДЬ ЗАЯВОК
+# ══════════════════════════════════════════════════════════════════════════
+
+@router.message(Command("queue"), IsReviewerL1())
+@router.message(F.text == "📋 Очередь заявок", IsReviewerL1())
+async def show_queue(message: Message, session: AsyncSession):
+    """Сводка очереди + динамическое Reply-меню (режим queue)."""
+    requests = await _get_new_requests(session)
+    total = len(requests)
+
+    if total == 0:
+        await message.answer(
+            "✅ Очередь пуста — новых заявок нет!",
+            reply_markup=get_reviewer_l1_menu_kb("queue"),
+        )
+        return
+
+    text = _build_queue_summary(requests)
+    # В режиме очереди: только "Начать проверку" (без "По филиалам" inline)
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="📂 Начать проверку", callback_data="l1_start")],
+    ])
+
+    await message.answer(text, reply_markup=kb, parse_mode="Markdown")
+    # Переключаем Reply-клавиатуру на режим queue
+    await message.answer("⬇️", reply_markup=get_reviewer_l1_menu_kb("queue"))
+
+
+def _build_queue_summary(requests) -> str:
+    total = len(requests)
+    by_type = {}
+    for r in requests:
+        by_type[r.request_type] = by_type.get(r.request_type, 0) + 1
+    priority_count = sum(1 for r in requests if _is_priority(r.created_at))
+
+    lines = [f"📂 *Режим: Очередь заявок*\n", f"📋 *{total} новых заявок*", "━" * 20]
+    for rt, count in by_type.items():
+        lines.append(f"{TYPE_ICONS.get(rt, '⚪')} {TYPE_LABELS.get(rt, rt)}: {count}")
+    if priority_count:
+        lines.append(f"\n🔥 *Приоритетных (>{PRIORITY_HOURS}ч):* {priority_count}")
+    return "\n".join(lines)
+
+
+@router.callback_query(F.data == "l1_back_queue", IsReviewerL1())
+async def back_to_queue(callback: CallbackQuery, session: AsyncSession):
+    """Вернуться к сводке очереди (inline)."""
+    requests = await _get_new_requests(session)
+
+    if not requests:
+        await _safe_edit(callback, "✅ Очередь пуста!", None)
+        return
+
+    text = _build_queue_summary(requests)
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="📂 Начать проверку", callback_data="l1_start")],
+    ])
+    await _safe_edit(callback, text, kb)
+
+
+# ── Начать проверку (карточки по дате) ───────────────────────────────────
+
+@router.callback_query(F.data == "l1_start", IsReviewerL1())
+async def start_review(callback: CallbackQuery, session: AsyncSession):
+    requests = await _get_new_requests(session)
+    if not requests:
+        await _safe_edit(callback, "✅ Очередь пуста!", None)
+        return
+    sorted_reqs = _sorted_by_priority(requests)
+    await _show_compact_card(callback, sorted_reqs, 0, session)
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# РЕЖИМ 2: ПО ФИЛИАЛАМ
+# ══════════════════════════════════════════════════════════════════════════
+
+@router.message(F.text == "📊 По филиалам", IsReviewerL1())
+@router.callback_query(F.data == "l1_branches", IsReviewerL1())
+async def show_branches(event, session: AsyncSession):
+    """Список филиалов + динамическое Reply-меню (режим branch)."""
+    stmt = (
+        select(Request.bhm_code_snapshot, Request.branch_name_snapshot, func.count(Request.id))
+        .where(Request.status == RequestStatus.new)
+        .group_by(Request.bhm_code_snapshot, Request.branch_name_snapshot)
+        .order_by(func.count(Request.id).desc())
+    )
+    result = await session.execute(stmt)
+    rows = result.all()
+
+    if not rows:
+        text = "✅ Нет новых заявок ни в одном филиале."
+        if isinstance(event, CallbackQuery):
+            await _safe_edit(event, text, None)
+        else:
+            await event.answer(text, reply_markup=get_reviewer_l1_menu_kb("branch"))
+        return
+
+    total = sum(r[2] for r in rows)
+    buttons = []
+    for bhm_code, name, count in rows:
+        buttons.append([InlineKeyboardButton(
+            text=f"🏢 {name} ({count})",
+            callback_data=f"l1_branch_{bhm_code}",
+        )])
+    buttons.append([InlineKeyboardButton(text="◀ К очереди", callback_data="l1_back_queue")])
+
+    kb = InlineKeyboardMarkup(inline_keyboard=buttons)
+    text = f"🏢 *Режим: По филиалам*\n📋 Всего {total} заявок в {len(rows)} филиалах\n\nВыберите филиал:"
+
+    if isinstance(event, CallbackQuery):
+        await _safe_edit(event, text, kb)
+    else:
+        await event.answer(text, reply_markup=kb, parse_mode="Markdown")
+        # Переключаем Reply-клавиатуру на режим branch
+        await event.answer("⬇️", reply_markup=get_reviewer_l1_menu_kb("branch"))
+
+
+# ── Заявки филиала ───────────────────────────────────────────────────────
+
+@router.callback_query(F.data.startswith("l1_branch_"), IsReviewerL1())
+async def show_branch_requests(callback: CallbackQuery, session: AsyncSession):
+    bhm_code = callback.data.replace("l1_branch_", "")
+    requests = await _get_new_by_branch(session, bhm_code)
+
+    if not requests:
+        await _safe_edit(callback, "✅ Все заявки этого филиала обработаны!", InlineKeyboardMarkup(
+            inline_keyboard=[[InlineKeyboardButton(text="◀ К филиалам", callback_data="l1_branches")]]
+        ))
+        return
+
+    branch_name = requests[0].branch_name_snapshot
+    lines = [f"🏢 *Режим: {branch_name} ({bhm_code})*", f"📋 {len(requests)} заявок\n"]
+
+    for i, r in enumerate(requests[:10], 1):  # Максимум 10 в превью
+        age = _age_short(r.created_at)
+        fire = "🔥 " if _is_priority(r.created_at) else ""
+        equip = EQUIP_LABELS.get(r.equipment_type, "")
+        lines.append(
+            f"{fire}{i}. {TYPE_LABELS.get(r.request_type, '')} {equip} | "
+            f"{r.employee_fio_snapshot} | {age}"
+        )
+
+    if len(requests) > 10:
+        lines.append(f"\n_...и ещё {len(requests) - 10} заявок_")
+
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🔍 Разобрать по одной", callback_data=f"l1_br_detail_{bhm_code}_0")],
+        [
+            InlineKeyboardButton(text="✅ Одобрить всё", callback_data=f"l1_confirm_approve_all_{bhm_code}"),
+            InlineKeyboardButton(text="❌ Отклонить всё", callback_data=f"l1_confirm_reject_all_{bhm_code}"),
+        ],
+        [InlineKeyboardButton(text="◀ Назад к филиалам", callback_data="l1_branches")],
+    ])
+
+    await _safe_edit(callback, "\n".join(lines), kb)
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# КАРТОЧКА ЗАЯВКИ (КОМПАКТНЫЙ ФОРМАТ + ПАГИНАЦИЯ)
+# ══════════════════════════════════════════════════════════════════════════
+
+async def _show_compact_card(callback: CallbackQuery, sorted_reqs, idx: int, session: AsyncSession, back_cb: str = "l1_back_queue"):
+    """Компактная карточка заявки с пагинацией ◀/▶."""
+    total = len(sorted_reqs)
+    if idx >= total:
+        await _safe_edit(callback, "✅ Все заявки просмотрены!", InlineKeyboardMarkup(
+            inline_keyboard=[[InlineKeyboardButton(text="◀ Назад", callback_data=back_cb)]]
+        ))
+        return
+
+    req = sorted_reqs[idx]
+    fire = "🔥 " if _is_priority(req.created_at) else ""
+    age = _age_short(req.created_at)
+    equip = EQUIP_LABELS.get(req.equipment_type, req.equipment_type)
+    inv = req.inventory_code_snapshot or ""
+    inv_str = f" {inv}" if inv else ""
+    reason = req.reason_text or req.problem_text or "—"
+
+    text = (
+        f"{fire}*#{req.request_number}* | {TYPE_LABELS.get(req.request_type, req.request_type)}\n"
+        f"👤 {req.employee_fio_snapshot} · {req.employee_position_snapshot or '—'}\n"
+        f"🏢 {req.branch_name_snapshot} ({req.bhm_code_snapshot}) · {equip}{inv_str}\n"
+        f"⏱ {age} · 📄 {idx + 1}/{total}\n"
+        f"\n💬 _{reason}_"
+    )
+
+    # Кнопки действий
+    buttons = [
+        [
+            InlineKeyboardButton(text="✅ Одобрить", callback_data=f"l1_approve_{req.id}"),
+            InlineKeyboardButton(text="❌ Отказать", callback_data=f"l1_reject_{req.id}"),
+        ],
+    ]
+
+    # Навигация ◀ / ▶  в одном ряду
+    nav_row = []
+    if idx > 0:
+        nav_row.append(InlineKeyboardButton(text="◀ Назад", callback_data=f"l1_nav_{idx - 1}_{back_cb}"))
+    if idx + 1 < total:
+        nav_row.append(InlineKeyboardButton(text="▶ Следующая", callback_data=f"l1_nav_{idx + 1}_{back_cb}"))
+    if nav_row:
+        buttons.append(nav_row)
+
+    buttons.append([InlineKeyboardButton(text="◀ К списку", callback_data=back_cb)])
+
+    await _safe_edit(callback, text, InlineKeyboardMarkup(inline_keyboard=buttons))
+
+
+# ── Навигация по карточкам (общая очередь) ───────────────────────────────
+
+@router.callback_query(F.data.startswith("l1_nav_"), IsReviewerL1())
+async def navigate_card(callback: CallbackQuery, session: AsyncSession):
+    """Пагинация: переход к карточке N."""
+    parts = callback.data.replace("l1_nav_", "").split("_", 1)
+    idx = int(parts[0])
+    back_cb = parts[1] if len(parts) > 1 else "l1_back_queue"
+
+    requests = await _get_new_requests(session)
+    if not requests:
+        await _safe_edit(callback, "✅ Все заявки обработаны!", None)
+        return
+    sorted_reqs = _sorted_by_priority(requests)
+    await _show_compact_card(callback, sorted_reqs, min(idx, len(sorted_reqs) - 1), session, back_cb)
+
+
+# ── Навигация по карточкам (внутри филиала) ──────────────────────────────
+
+@router.callback_query(F.data.startswith("l1_br_detail_"), IsReviewerL1())
+async def show_branch_detail(callback: CallbackQuery, session: AsyncSession):
+    """Карточка заявки внутри филиала."""
+    parts = callback.data.replace("l1_br_detail_", "").rsplit("_", 1)
+    bhm_code = parts[0]
+    idx = int(parts[1])
+    requests = await _get_new_by_branch(session, bhm_code)
+    if not requests:
+        await _safe_edit(callback, "✅ Все заявки обработаны!", InlineKeyboardMarkup(
+            inline_keyboard=[[InlineKeyboardButton(text="◀ К филиалам", callback_data="l1_branches")]]
+        ))
+        return
+
+    # Для навигации внутри филиала используем специальный back_cb
+    back_cb = f"l1_branch_{bhm_code}"
+    sorted_reqs = _sorted_by_priority(requests)
+
+    total = len(sorted_reqs)
+    if idx >= total:
+        idx = total - 1
+
+    req = sorted_reqs[idx]
+    fire = "🔥 " if _is_priority(req.created_at) else ""
+    age = _age_short(req.created_at)
+    equip = EQUIP_LABELS.get(req.equipment_type, req.equipment_type)
+    inv = req.inventory_code_snapshot or ""
+    inv_str = f" {inv}" if inv else ""
+    reason = req.reason_text or req.problem_text or "—"
+
+    text = (
+        f"{fire}*#{req.request_number}* | {TYPE_LABELS.get(req.request_type, req.request_type)}\n"
+        f"👤 {req.employee_fio_snapshot} · {req.employee_position_snapshot or '—'}\n"
+        f"🏢 {req.branch_name_snapshot} ({req.bhm_code_snapshot}) · {equip}{inv_str}\n"
+        f"⏱ {age} · 📄 {idx + 1}/{total}\n"
+        f"\n💬 _{reason}_"
+    )
+
+    buttons = [
+        [
+            InlineKeyboardButton(text="✅ Одобрить", callback_data=f"l1_approve_{req.id}"),
+            InlineKeyboardButton(text="❌ Отказать", callback_data=f"l1_reject_{req.id}"),
+        ],
+    ]
+    nav_row = []
+    if idx > 0:
+        nav_row.append(InlineKeyboardButton(text="◀ Назад", callback_data=f"l1_br_detail_{bhm_code}_{idx - 1}"))
+    if idx + 1 < total:
+        nav_row.append(InlineKeyboardButton(text="▶ Следующая", callback_data=f"l1_br_detail_{bhm_code}_{idx + 1}"))
+    if nav_row:
+        buttons.append(nav_row)
+
+    buttons.append([InlineKeyboardButton(text="◀ К филиалу", callback_data=back_cb)])
+
+    await _safe_edit(callback, text, InlineKeyboardMarkup(inline_keyboard=buttons))
+
+
+# ── Показ конкретной заявки по ID ────────────────────────────────────────
+
+@router.callback_query(F.data.startswith("l1_detail_"), IsReviewerL1())
+async def show_detail(callback: CallbackQuery, session: AsyncSession):
+    req_id = int(callback.data.replace("l1_detail_", ""))
+    req = await session.get(Request, req_id)
+    if not req or req.status != RequestStatus.new:
+        await callback.answer("Заявка уже обработана", show_alert=True)
+        return
+    await _show_compact_card(callback, [req], 0, session)
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# ОДОБРИТЬ / ОТКЛОНИТЬ
+# ══════════════════════════════════════════════════════════════════════════
+
+@router.callback_query(F.data.startswith("l1_approve_"), IsReviewerL1())
+async def approve_request(callback: CallbackQuery, session: AsyncSession):
+    # Защита от пересечения с l1_approve_all_
+    if callback.data.startswith("l1_approve_all_"):
+        return
+    req_id = int(callback.data.replace("l1_approve_", ""))
+    req = await session.get(Request, req_id)
+    if not req or req.status != RequestStatus.new:
+        await callback.answer("Заявка уже обработана", show_alert=True)
+        return
+
+    req.status = RequestStatus.approved_l1
+    req.l1_reviewer_tg_id = callback.from_user.id
+    await session.commit()
+    await callback.answer("✅ Одобрено!", show_alert=True)
+
+    # Показать следующую
+    remaining = await _get_new_requests(session)
+    if remaining:
+        sorted_reqs = _sorted_by_priority(remaining)
+        await _show_compact_card(callback, sorted_reqs, 0, session)
+    else:
+        await _safe_edit(callback, "✅ Все заявки обработаны!", InlineKeyboardMarkup(
+            inline_keyboard=[[InlineKeyboardButton(text="📋 К очереди", callback_data="l1_back_queue")]]
+        ))
+
+
+@router.callback_query(F.data.startswith("l1_reject_"), IsReviewerL1())
+async def reject_request(callback: CallbackQuery, session: AsyncSession):
+    # Защита от l1_reject_all_
+    if callback.data.startswith("l1_reject_all_"):
+        return
+    req_id = callback.data.replace("l1_reject_", "")
+
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="📋 Новая техника (не нужна замена)", callback_data=f"l1_rj_reason_{req_id}_new_tech")],
+        [InlineKeyboardButton(text="❌ Не соответствует критериям", callback_data=f"l1_rj_reason_{req_id}_criteria")],
+        [InlineKeyboardButton(text="◀ Назад", callback_data=f"l1_detail_{req_id}")],
+    ])
+    await _safe_edit(callback, "Выберите причину отказа:", kb, parse_mode=None)
+
+
+@router.callback_query(F.data.startswith("l1_rj_reason_"), IsReviewerL1())
+async def reject_with_reason(callback: CallbackQuery, session: AsyncSession):
+    parts = callback.data.replace("l1_rj_reason_", "").split("_", 1)
+    req_id = int(parts[0])
+    reason_key = parts[1]
+
+    reasons = {
+        "new_tech": "Техника новая, замена не требуется",
+        "criteria": "Не соответствует критериям замены",
+    }
+
+    req = await session.get(Request, req_id)
+    if not req or req.status != RequestStatus.new:
+        await callback.answer("Заявка уже обработана", show_alert=True)
+        return
+
+    req.status = RequestStatus.closed
+    req.final_decision = FinalDecision.rejected
+    req.reject_reason = reasons.get(reason_key, reason_key)
+    req.l1_reviewer_tg_id = callback.from_user.id
+    req.closed_at = datetime.now(timezone.utc)
+    await session.commit()
+
+    await callback.answer("❌ Отклонена", show_alert=True)
+
+    remaining = await _get_new_requests(session)
+    if remaining:
+        sorted_reqs = _sorted_by_priority(remaining)
+        await _show_compact_card(callback, sorted_reqs, 0, session)
+    else:
+        await _safe_edit(callback, "✅ Все заявки обработаны!", None)
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# МАССОВЫЕ ОПЕРАЦИИ С ПОДТВЕРЖДЕНИЕМ
+# ══════════════════════════════════════════════════════════════════════════
+
+@router.callback_query(F.data.startswith("l1_confirm_approve_all_"), IsReviewerL1())
+async def confirm_approve_all(callback: CallbackQuery, session: AsyncSession):
+    """Диалог подтверждения массового одобрения."""
+    bhm_code = callback.data.replace("l1_confirm_approve_all_", "")
+    requests = await _get_new_by_branch(session, bhm_code)
+    count = len(requests)
+    branch_name = requests[0].branch_name_snapshot if requests else bhm_code
+
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text=f"✅ Да, одобрить все {count}", callback_data=f"l1_approve_all_{bhm_code}"),
+            InlineKeyboardButton(text="❌ Нет, отмена", callback_data=f"l1_branch_{bhm_code}"),
+        ]
+    ])
+    await _safe_edit(callback, f"⚠️ *Вы уверены?*\n\nОдобрить все *{count}* заявок по филиалу *{branch_name}*?", kb)
+
+
+@router.callback_query(F.data.startswith("l1_confirm_reject_all_"), IsReviewerL1())
+async def confirm_reject_all(callback: CallbackQuery, session: AsyncSession):
+    """Диалог подтверждения массового отклонения."""
+    bhm_code = callback.data.replace("l1_confirm_reject_all_", "")
+    requests = await _get_new_by_branch(session, bhm_code)
+    count = len(requests)
+    branch_name = requests[0].branch_name_snapshot if requests else bhm_code
+
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text=f"❌ Да, отклонить все {count}", callback_data=f"l1_reject_all_{bhm_code}"),
+            InlineKeyboardButton(text="◀ Нет, отмена", callback_data=f"l1_branch_{bhm_code}"),
+        ]
+    ])
+    await _safe_edit(callback, f"⚠️ *Вы уверены?*\n\nОтклонить все *{count}* заявок по филиалу *{branch_name}*?", kb)
+
+
+@router.callback_query(F.data.startswith("l1_approve_all_"), IsReviewerL1())
+async def approve_all_branch(callback: CallbackQuery, session: AsyncSession):
+    bhm_code = callback.data.replace("l1_approve_all_", "")
+    requests = await _get_new_by_branch(session, bhm_code)
+    count = 0
+    for r in requests:
+        r.status = RequestStatus.approved_l1
+        r.l1_reviewer_tg_id = callback.from_user.id
+        count += 1
+    await session.commit()
+
+    await _safe_edit(callback, f"✅ Одобрено *{count}* заявок по *{bhm_code}*", InlineKeyboardMarkup(
+        inline_keyboard=[[InlineKeyboardButton(text="◀ К филиалам", callback_data="l1_branches")]]
+    ))
+
+
+@router.callback_query(F.data.startswith("l1_reject_all_"), IsReviewerL1())
+async def reject_all_branch(callback: CallbackQuery, session: AsyncSession):
+    bhm_code = callback.data.replace("l1_reject_all_", "")
+    requests = await _get_new_by_branch(session, bhm_code)
+    count = 0
+    for r in requests:
+        r.status = RequestStatus.closed
+        r.final_decision = FinalDecision.rejected
+        r.reject_reason = "Массовый отказ L1"
+        r.l1_reviewer_tg_id = callback.from_user.id
+        r.closed_at = datetime.now(timezone.utc)
+        count += 1
+    await session.commit()
+
+    await _safe_edit(callback, f"❌ Отклонено *{count}* заявок по *{bhm_code}*", InlineKeyboardMarkup(
+        inline_keyboard=[[InlineKeyboardButton(text="◀ К филиалам", callback_data="l1_branches")]]
+    ))

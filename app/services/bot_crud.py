@@ -146,6 +146,8 @@ async def create_request(
     inventory_code_raw: Optional[str] = None,
     reason: Optional[str] = None,
     problem: Optional[str] = None,
+    status: RequestStatus = RequestStatus.new,
+    final_decision: Optional[str] = None,
 ) -> Request:
     """Создает новую заявку."""
     # Получаем или создаем сотрудника (чтобы сохранить в справочнике ФИО+должность)
@@ -171,7 +173,8 @@ async def create_request(
         inventory_code_snapshot=inventory.inventory_code if inventory else inventory_code_raw,
         reason_text=reason,
         problem_text=problem,
-        status=RequestStatus.new,
+        status=status,
+        final_decision=final_decision,
     )
     session.add(req)
     await session.commit()

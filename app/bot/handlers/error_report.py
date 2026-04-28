@@ -13,13 +13,17 @@ logger = logging.getLogger(__name__)
 router = Router()
 
 
-@router.message(F.text == "Сообщить об ошибке")
+from app.bot.utils.texts import _, get_text_variants
+
+
+@router.message(F.text.in_(get_text_variants("btn_error")))
 async def start_error_report(message: Message, state: FSMContext):
     """Начало FSM для отправки отчета об ошибке."""
+    data = await state.get_data()
+    lang = data.get("language", "uz")
     await message.answer(
-        "Опишите обнаруженную ошибку или проблему приложения.\n"
-        "Ваше сообщение будет отправлено напрямую разработчику.",
-        reply_markup=get_cancel_kb()
+        _("rep_start", lang),
+        reply_markup=get_cancel_kb(lang)
     )
     await state.set_state(ErrorReportForm.waiting_for_error_text)
 
@@ -27,12 +31,15 @@ async def start_error_report(message: Message, state: FSMContext):
 @router.message(ErrorReportForm.waiting_for_error_text)
 async def process_error_text(message: Message, state: FSMContext):
     """Отправка email с описанием ошибки."""
+    data = await state.get_data()
+    lang = data.get("language", "uz")
+    
     error_text = message.text
     user = message.from_user
     username = f"@{user.username}" if user.username else str(user.id)
     content = f"Пользователь: {username} (ID: {user.id})\nСообщение об ошибке:\n\n{error_text}"
     
-    await message.answer("Отправка сообщения...", reply_markup=get_main_menu_kb())
+    await message.answer(_("rep_sending", lang), reply_markup=get_main_menu_kb(lang))
 
     try:
         # Формируем Email
@@ -45,7 +52,7 @@ async def process_error_text(message: Message, state: FSMContext):
         # Если SMTP не настроен (для тестирования)
         if not settings.SMTP_USERNAME or not settings.SMTP_PASSWORD:
             logger.warning(f"Simulated Error Email sent: {content}")
-            await message.answer("✅ Внимание: Email не настроен. Ошибка записана локально.")
+            await message.answer(_("rep_no_mail", lang))
         else:
             await aiosmtplib.send(
                 email_msg,
@@ -55,9 +62,9 @@ async def process_error_text(message: Message, state: FSMContext):
                 password=settings.SMTP_PASSWORD,
                 use_tls=True
             )
-            await message.answer("✅ Ваше сообщение успешно отправлено разработчику. Спасибо!")
+            await message.answer(_("rep_sent", lang))
     except Exception as e:
         logger.error(f"Error sending email: {e}")
-        await message.answer("❌ Произошла ошибка при отправке email, попробуйте позже.")
+        await message.answer(_("rep_fail", lang))
 
     await state.set_state(None)

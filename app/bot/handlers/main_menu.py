@@ -11,30 +11,35 @@ logger = logging.getLogger(__name__)
 router = Router()
 
 
-@router.message(F.text.in_(["Компьютер", "Принтер"]))
+from app.bot.utils.texts import _, get_text_variants
+
+@router.message(F.text.in_(get_text_variants("btn_computer") + get_text_variants("btn_printer")))
 async def select_equipment_type(message: Message, state: FSMContext, session: AsyncSession):
     """Выбор типа техники из главного меню."""
     data = await state.get_data()
+    lang = data.get("language", "uz")
+    
     # Если юзер не авторизован в филиале (нет BXM)
     if "branch_id" not in data:
-        await message.answer("Сначала необходимо выбрать филиал. Нажмите /start")
+        await message.answer(_("msg_not_auth", lang))
         return
 
-    equipment_type = "computer" if message.text == "Компьютер" else "printer"
+    equipment_type = "computer" if message.text in get_text_variants("btn_computer") else "printer"
     await state.update_data(equipment_type=equipment_type)
     
     await message.answer(
-        f"Вы выбрали оборудование: **{message.text}**.\n\nКакую заявку вы хотите подать?",
-        reply_markup=get_request_type_kb(),
+        _("msg_select_equip", lang, equip=message.text),
+        reply_markup=get_request_type_kb(lang),
         parse_mode="Markdown"
     )
 
 
-@router.message(F.text == "⬅️ Назад в меню")
+@router.message(F.text.in_(get_text_variants("btn_back")))
 async def back_to_main_menu(message: Message, state: FSMContext):
     """Возврат в главное меню из подменю."""
     # Очищаем данные о типе, но оставляем branch_id
     data = await state.get_data()
+    lang = data.get("language", "uz")
     branch_id = data.get("branch_id")
     bhm_code = data.get("bhm_code")
     branch_name = data.get("branch_name")
@@ -46,21 +51,25 @@ async def back_to_main_menu(message: Message, state: FSMContext):
         await state.update_data(
             branch_id=branch_id,
             bhm_code=bhm_code,
-            branch_name=branch_name
+            branch_name=branch_name,
+            language=lang
         )    
     
     await message.answer(
-        "Вы вернулись в главное меню.",
-        reply_markup=get_main_menu_kb()
+        _("msg_back_main", lang),
+        reply_markup=get_main_menu_kb(lang)
     )
 
 
-@router.message(F.text == "⬅️ Отмена и в меню")
+@router.message(F.text.in_(get_text_variants("btn_cancel")))
 async def cancel_fsm(message: Message, state: FSMContext):
     """Прерывание FSM (формы заявки)."""
+    data = await state.get_data()
+    lang = data.get("language", "uz")
+    
     current_state = await state.get_state()
     if current_state is None:
         return await back_to_main_menu(message, state)
 
-    await message.answer("Заполнение заявки отменено.", reply_markup=get_main_menu_kb())
+    await message.answer(_("msg_cancel", lang), reply_markup=get_main_menu_kb(lang))
     await back_to_main_menu(message, state)

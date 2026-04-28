@@ -5,6 +5,8 @@ from aiogram import Bot, Dispatcher
 from aiogram.fsm.storage.memory import MemoryStorage
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 import uvicorn
 
 from app.config import settings
@@ -14,6 +16,7 @@ from app.bot.middlewares.db_session import DbSessionMiddleware
 
 # Подключение API роутеров
 from app.api.routers import auth, requests, dashboard, inventory
+from app.api.routers import tickets, branches, export
 
 # Setup logging
 logging.basicConfig(
@@ -26,14 +29,18 @@ logger = logging.getLogger(__name__)
 def get_bot_and_dp():
     bot = Bot(token=settings.BOT_TOKEN)
     dp = Dispatcher(storage=MemoryStorage())
-    dp.message.middleware(DbSessionMiddleware())
-    dp.callback_query.middleware(DbSessionMiddleware())
+    
+    # Регистрируем как outer_middleware, чтобы сессия была доступна в фильтрах (RoleFilter)
+    dp.update.outer_middleware(DbSessionMiddleware())
+    
     dp.include_router(setup_routers())
     return bot, dp
 
 bot, dp = None, None
 
 from aiogram.types import BotCommand
+from app.services.scheduler import sla_scheduler_loop
+from app.database import async_session
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -46,17 +53,20 @@ async def lifespan(app: FastAPI):
     
     # Установка меню команд
     await bot.set_my_commands([
-        BotCommand(command="start", description="Начать работу / Сменить филиал")
+        BotCommand(command="start", description="Начать работу / Сменить филиал"),
+        BotCommand(command="language", description="Сменить язык / Tilni o'zg.")
     ])
     
     await bot.delete_webhook(drop_pending_updates=True)
     polling_task = asyncio.create_task(dp.start_polling(bot))
+    sla_task = asyncio.create_task(sla_scheduler_loop(async_session, bot))
     
     yield  # Сервер работает
     
     # Shutdown
     logger.info("Stopping Bot...")
     polling_task.cancel()
+    sla_task.cancel()
     await bot.session.close()
     await engine.dispose()
 
@@ -65,7 +75,8 @@ app = FastAPI(title="TgTexnika API", lifespan=lifespan)
 # CORS setup
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173",
+                   "http://localhost:8000", "http://127.0.0.1:8000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -76,6 +87,17 @@ app.include_router(auth.router)
 app.include_router(requests.router)
 app.include_router(dashboard.router)
 app.include_router(inventory.router)
+app.include_router(tickets.router)
+app.include_router(branches.router)
+app.include_router(export.router)
+
+
+@app.get("/", include_in_schema=False)
+async def serve_index():
+    """Раздаёт bxm_complete.html как главную страницу."""
+    return FileResponse("bxm_complete.html")
+
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+

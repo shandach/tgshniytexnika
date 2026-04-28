@@ -14,6 +14,7 @@ class RequestType(str, enum.Enum):
 class RequestStatus(str, enum.Enum):
     new = "new"
     in_progress = "in_progress"
+    approved_l1 = "approved_l1"
     closed = "closed"
 
 
@@ -21,6 +22,7 @@ class FinalDecision(str, enum.Enum):
     pending = "pending"
     approved = "approved"
     rejected = "rejected"
+    repaired = "repaired"
 
 
 # ── Request ─────────────────────────────────────────────────────────────
@@ -91,7 +93,16 @@ class Request(Base):
     reject_reason: str = sa.Column(sa.Text, nullable=True)
     reviewer_comment: str = sa.Column(sa.Text, nullable=True)
 
-    # ── Timestamps ───────────────────────────────────────────────────
+    # ── Фото техники (только для replacement) ────────────────────────
+    photo_file_id: str = sa.Column(sa.String(512), nullable=True)
+
+    # ── L1/L2 рецензирование ─────────────────────────────────────────
+    l1_reviewer_tg_id: int = sa.Column(sa.BigInteger, nullable=True)
+    l1_comment: str = sa.Column(sa.Text, nullable=True)
+    l2_reviewer_tg_id: int = sa.Column(sa.BigInteger, nullable=True)
+
+    # ── Timestamps & Metadata ────────────────────────────────────────
+    sla_escalated: bool = sa.Column(sa.Boolean, nullable=False, server_default=sa.text("false"), default=False)
     created_at = sa.Column(
         sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
     )
