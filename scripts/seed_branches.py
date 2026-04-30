@@ -50,6 +50,7 @@ async def seed_branches() -> None:
                 branch_name=item["branch_name"],
                 region_name=item["region_name"],
                 city_name=item["city_name"],
+                location_type=item.get("location_type", "regional"),
                 is_active=True,
             )
             session.add(branch)

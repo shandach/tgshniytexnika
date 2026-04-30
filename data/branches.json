@@ -1,32 +1,100 @@
 [
     {
-        "bhm_code": "00190",
-        "branch_name": "Головной офис",
-        "region_name": "Тошкент шаҳри",
-        "city_name": "Тошкент"
+        "bhm_code": "11391",
+        "branch_name": "Андижон шахри, Олтинкул кўчаси",
+        "region_name": "Андижон вилояти",
+        "city_name": "Андижон",
+        "location_type": "regional"
     },
     {
-        "bhm_code": "01045",
-        "branch_name": "Чиланзар филиали",
-        "region_name": "Тошкент шаҳри",
-        "city_name": "Тошкент"
-    },
-    {
-        "bhm_code": "01137",
-        "branch_name": "Мирзо Улуғбек филиали",
-        "region_name": "Тошкент шаҳри",
-        "city_name": "Тошкент"
-    },
-    {
-        "bhm_code": "02015",
-        "branch_name": "Самарқанд филиали",
-        "region_name": "Самарқанд вилояти",
-        "city_name": "Самарқанд"
-    },
-    {
-        "bhm_code": "03022",
-        "branch_name": "Бухоро филиали",
+        "bhm_code": "11381",
+        "branch_name": "Бухоро шахари, М.Икбол кўчаси",
         "region_name": "Бухоро вилояти",
-        "city_name": "Бухоро"
+        "city_name": "Бухоро",
+        "location_type": "regional"
+    },
+    {
+        "bhm_code": "11630",
+        "branch_name": "Зомин, Кургон махалласи худудида",
+        "region_name": "Жиззах вилояти",
+        "city_name": "Зомин",
+        "location_type": "regional"
+    },
+    {
+        "bhm_code": "11350",
+        "branch_name": "Қарши шахар, А.Tемур кўчаси",
+        "region_name": "Қашқадарё вилояти",
+        "city_name": "Қарши",
+        "location_type": "regional"
+    },
+    {
+        "bhm_code": "11383",
+        "branch_name": "Нурота,У.Юсупов кўчаси",
+        "region_name": "Навоий вилояти",
+        "city_name": "Нурота",
+        "location_type": "regional"
+    },
+    {
+        "bhm_code": "11323",
+        "branch_name": "Наманган шахри, Оби-ҳаёт МФЙ Лутфий к. 5",
+        "region_name": "Наманган вилояти",
+        "city_name": "Наманган",
+        "location_type": "regional"
+    },
+    {
+        "bhm_code": "11325",
+        "branch_name": "Пайариқ, Самарканд кўчаси 59 уй",
+        "region_name": "Самарқанд вилояти",
+        "city_name": "Пайариқ",
+        "location_type": "regional"
+    },
+    {
+        "bhm_code": "11405",
+        "branch_name": "Денов ш. Мустакилик кўчаси 45 уй",
+        "region_name": "Сурхондарё вилояти",
+        "city_name": "Денов",
+        "location_type": "regional"
+    },
+    {
+        "bhm_code": "11626",
+        "branch_name": "Сайхунобод,Шодлик мфй, К.Муродов",
+        "region_name": "Сирдарё вилояти",
+        "city_name": "Сайхунобод",
+        "location_type": "regional"
+    },
+    {
+        "bhm_code": "11407",
+        "branch_name": "Миробод, Nukus ko'chasi",
+        "region_name": "Тошкент шаҳри",
+        "city_name": "Миробод",
+        "location_type": "city"
+    },
+    {
+        "bhm_code": "11488",
+        "branch_name": "Юқори Чирчиқ, Янгибозор курғ. Мустакиллик",
+        "region_name": "Тошкент вилояти",
+        "city_name": "Юқори Чирчиқ",
+        "location_type": "regional"
+    },
+    {
+        "bhm_code": "11733",
+        "branch_name": "Сўх, Истиқлол МФЙ Амур Темур кўчаси",
+        "region_name": "Фарғона вилояти",
+        "city_name": "Сўх",
+        "location_type": "regional"
+    },
+    {
+        "bhm_code": "11845",
+        "branch_name": "Урганч шахар, Тинчлик кўчаси",
+        "region_name": "Хоразм вилояти",
+        "city_name": "Урганч",
+        "location_type": "regional"
+    },
+    {
+        "bhm_code": "11806",
+        "branch_name": "Муйноқ, Жайхун МФЙ, Ажиниёз кўчаси",
+        "region_name": "Қорақалпоғистон Республикаси",
+        "city_name": "Муйноқ",
+        "location_type": "regional"
     }
 ]

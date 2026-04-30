@@ -1741,14 +1741,14 @@
             </button>
             <div class="dd-panel" id="branch-panel">
               <div class="panel-tabs">
-                <div class="panel-tab active" onclick="switchTab('branch-tab-list','branch-panel')">По филиалу</div>
+                <div class="panel-tab active" onclick="switchTab('branch-tab-list','branch-panel')">По региону</div>
                 <div class="panel-tab" onclick="switchTab('branch-tab-type','branch-panel')">Городской / Региональный
                 </div>
               </div>
               <div class="tab-pane active" id="branch-tab-list">
                 <div class="dd-search">
                   <span class="icon sm" style="color:var(--clr-text-hint)">search</span>
-                  <input type="text" id="branch-q" placeholder="Поиск по названию или коду..."
+                  <input type="text" id="branch-q" placeholder="Поиск по региону..."
                     oninput="buildBranchList()" />
                 </div>
                 <div class="dd-list" id="branch-list"></div>
@@ -1985,10 +1985,13 @@
         const res = await fetch('/tickets', { headers: authHeaders() });
         if (!res.ok) throw new Error('Failed to load tickets');
         ALL_TICKETS = await res.json();
-        // Заполняем lt из BRANCHES
+        // Заполняем lt и rn из BRANCHES
         const branchMap = {};
-        BRANCHES.forEach(b => { branchMap[b.c] = b.lt; });
-        ALL_TICKETS.forEach(t => { t.lt = branchMap[t.bc] || ''; });
+        BRANCHES.forEach(b => { branchMap[b.c] = {lt: b.lt, rn: b.rn}; });
+        ALL_TICKETS.forEach(t => { 
+          t.lt = branchMap[t.bc]?.lt || ''; 
+          t.rn = branchMap[t.bc]?.rn || ''; 
+        });
       } catch (e) {
         console.error('loadTickets error:', e);
         ALL_TICKETS = [];
@@ -2010,7 +2013,7 @@
     }
 
     /* STATE */
-    let selBranch = null, selLT = null, filterType = 'all', searchQ = '', dFrom = null, dTo = null, curPage = 1;
+    let selRegion = null, selLT = null, filterType = 'all', searchQ = '', dFrom = null, dTo = null, curPage = 1;
     const PER = 10;
 
     /* ROUTER */
@@ -2064,7 +2067,7 @@
       const token = localStorage.getItem('token');
       if (!token) { alert('Авторизуйтесь для экспорта'); return; }
       const params = new URLSearchParams();
-      if (selBranch) params.set('branch', selBranch);
+      if (selRegion) params.set('region', selRegion);
       if (filterType !== 'all') params.set('type', filterType);
       if (dFrom) params.set('from', dFrom);
       if (dTo) params.set('to', dTo);
@@ -2121,19 +2124,19 @@
     /* BRANCH LIST */
     function buildBranchList() {
       const q = (document.getElementById('branch-q') || { value: '' }).value.toLowerCase();
-      const fil = BRANCHES.filter(b => b.n.toLowerCase().includes(q) || b.c.toLowerCase().includes(q));
-      const g = {}; fil.forEach(b => { const l = b.n[0].toUpperCase(); if (!g[l]) g[l] = []; g[l].push(b); });
+      const regions = [...new Set(BRANCHES.map(b => b.rn).filter(Boolean))].sort();
+      const fil = regions.filter(r => r.toLowerCase().includes(q));
+      
       const list = document.getElementById('branch-list'); if (!list) return; list.innerHTML = '';
-      Object.keys(g).sort().forEach(letter => {
-        const hdr = document.createElement('div'); hdr.className = 'alpha-hdr'; hdr.textContent = letter; list.appendChild(hdr);
-        g[letter].forEach(b => {
-          const p = ALL_TICKETS.filter(t => t.bc === b.c && t.status === 'pending').length;
-          const div = document.createElement('div');
-          div.className = 'dd-item' + (selBranch === b.c ? ' selected' : '');
-          div.innerHTML = `<div><div class="dd-item-name">${b.n}</div><div class="dd-item-sub">${b.c} · ${b.lt === 'city' ? 'Городской' : 'Региональный'}</div></div><div>${p ? `<span class="pending-badge">${p}</span>` : ''}</div>`;
-          div.onclick = e => { e.stopPropagation(); selBranch = selBranch === b.c ? null : b.c; selLT = null; curPage = 1; updateBranchTrigger(); buildBranchList(); buildLoctypeCards(); renderTable(); toggleDD('branch-panel', 'branch-arrow'); };
-          list.appendChild(div);
-        });
+      fil.forEach(r => {
+        const branchCodes = BRANCHES.filter(b => b.rn === r).map(b => b.c);
+        const p = ALL_TICKETS.filter(t => branchCodes.includes(t.bc) && t.status === 'pending').length;
+        
+        const div = document.createElement('div');
+        div.className = 'dd-item' + (selRegion === r ? ' selected' : '');
+        div.innerHTML = `<div><div class="dd-item-name">${r}</div><div class="dd-item-sub">${branchCodes.length} филиалов</div></div><div>${p ? `<span class="pending-badge">${p}</span>` : ''}</div>`;
+        div.onclick = e => { e.stopPropagation(); selRegion = selRegion === r ? null : r; selLT = null; curPage = 1; updateBranchTrigger(); buildBranchList(); buildLoctypeCards(); renderTable(); toggleDD('branch-panel', 'branch-arrow'); };
+        list.appendChild(div);
       });
     }
     function buildLoctypeCards() {
@@ -2145,17 +2148,17 @@
         const card = document.createElement('div');
         card.className = 'loctype-card' + (selLT === lt.id ? ' selected' : '');
         card.innerHTML = `<div class="card-icon"><span class="icon">${icon}</span></div><div class="card-title">${lt.label}</div><div class="card-sub">${codes.length} фил. · ${p} ожидают</div>`;
-        card.onclick = e => { e.stopPropagation(); selLT = selLT === lt.id ? null : lt.id; selBranch = null; curPage = 1; updateBranchTrigger(); buildBranchList(); buildLoctypeCards(); renderTable(); toggleDD('branch-panel', 'branch-arrow'); };
+        card.onclick = e => { e.stopPropagation(); selLT = selLT === lt.id ? null : lt.id; selRegion = null; curPage = 1; updateBranchTrigger(); buildBranchList(); buildLoctypeCards(); renderTable(); toggleDD('branch-panel', 'branch-arrow'); };
         c.appendChild(card);
       });
     }
-    function clearBranch() { selBranch = null; selLT = null; curPage = 1; updateBranchTrigger(); buildBranchList(); buildLoctypeCards(); renderTable(); toggleDD('branch-panel', 'branch-arrow'); }
+    function clearBranch() { selRegion = null; selLT = null; curPage = 1; updateBranchTrigger(); buildBranchList(); buildLoctypeCards(); renderTable(); toggleDD('branch-panel', 'branch-arrow'); }
     function updateBranchTrigger() {
       const lbl = document.getElementById('branch-label');
       const btn = document.getElementById('branch-trigger');
-      if (selBranch) { const b = BRANCHES.find(x => x.c === selBranch); lbl.textContent = b ? b.n + ' (' + b.c + ')' : ''; btn.classList.add('has-value'); }
+      if (selRegion) { lbl.textContent = selRegion; btn.classList.add('has-value'); }
       else if (selLT) { lbl.textContent = selLT === 'city' ? 'Городские' : 'Региональные'; btn.classList.add('has-value'); }
-      else { lbl.textContent = 'Все филиалы'; btn.classList.remove('has-value'); }
+      else { lbl.textContent = 'Все филиалы / регионы'; btn.classList.remove('has-value'); }
     }
 
     /* DATE */
@@ -2201,7 +2204,7 @@
 
     function getFiltered() {
       let t = ALL_TICKETS;
-      if (selBranch) t = t.filter(x => x.bc === selBranch);
+      if (selRegion) t = t.filter(x => x.rn === selRegion);
       else if (selLT) t = t.filter(x => x.lt === selLT);
       if (filterType !== 'all') t = t.filter(x => x.type === filterType);
       if (dFrom) t = t.filter(x => x.dv >= dFrom);

@@ -25,6 +25,6 @@ async def list_branches(
     )
     rows = (await session.scalars(stmt)).all()
     return [
-        {"n": b.branch_name, "c": b.bhm_code, "lt": b.location_type}
+        {"n": b.branch_name, "c": b.bhm_code, "lt": b.location_type, "rn": b.region_name}
         for b in rows
     ]

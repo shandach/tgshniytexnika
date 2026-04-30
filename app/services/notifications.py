@@ -28,9 +28,30 @@ async def _get_tg_ids_by_role(session: AsyncSession, role: TgRole) -> list[int]:
     return list(result.all())
 
 
+async def _get_l1_ids_by_region(session: AsyncSession, region_name: str) -> list[int]:
+    """Получить Telegram ID L1-проверяющих, привязанных к указанной области."""
+    stmt = select(TelegramAccount.telegram_user_id).where(
+        TelegramAccount.role == TgRole.reviewer_l1,
+        TelegramAccount.assigned_region == region_name,
+    )
+    result = await session.scalars(stmt)
+    return list(result.all())
+
+
 async def notify_l1_new_request(bot: Bot, session: AsyncSession, request: Request):
-    """Уведомить всех L1-проверяющих о новой заявке."""
-    l1_ids = await _get_tg_ids_by_role(session, TgRole.reviewer_l1)
+    """Уведомить L1-проверяющего области о новой заявке."""
+    # Определяем область филиала заявки
+    from app.models.branch import BhmBranch
+    stmt = select(BhmBranch.region_name).where(BhmBranch.id == request.branch_id)
+    region = await session.scalar(stmt)
+
+    # Ищем L1 проверяющих этой области
+    l1_ids = []
+    if region:
+        l1_ids = await _get_l1_ids_by_region(session, region)
+    # Fallback: если нет регионального проверяющего — отправляем всем L1
+    if not l1_ids:
+        l1_ids = await _get_tg_ids_by_role(session, TgRole.reviewer_l1)
     if not l1_ids:
         logger.warning("Нет L1-проверяющих для уведомления!")
         return
@@ -134,9 +155,17 @@ async def notify_employee_result(
 
 
 async def notify_l1_escalation(bot: Bot, session: AsyncSession, request: Request, comment: str):
-    """Уведомить L1 о том, что сотрудник не подтвердил починку (Сломан)."""
-    l1_ids = await _get_tg_ids_by_role(session, TgRole.reviewer_l1)
-    
+    """Уведомить L1 области о том, что сотрудник не подтвердил починку (Сломан)."""
+    from app.models.branch import BhmBranch
+    stmt = select(BhmBranch.region_name).where(BhmBranch.id == request.branch_id)
+    region = await session.scalar(stmt)
+
+    l1_ids = []
+    if region:
+        l1_ids = await _get_l1_ids_by_region(session, region)
+    if not l1_ids:
+        l1_ids = await _get_tg_ids_by_role(session, TgRole.reviewer_l1)
+
     equip = "Компьютер" if request.equipment_type == "computer" else "Принтер"
     text = (
         f"🔴 *Эскалация по ремонту!*\n\n"
@@ -146,7 +175,7 @@ async def notify_l1_escalation(bot: Bot, session: AsyncSession, request: Request
         f"Техника: {equip} ({request.inventory_code_snapshot})\n\n"
         f"📝 *Комментарий сотрудника:*\n_{comment}_"
     )
-    
+
     for tg_id in l1_ids:
         try:
             await bot.send_message(tg_id, text, parse_mode="Markdown")
