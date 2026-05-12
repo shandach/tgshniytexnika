@@ -63,7 +63,56 @@ TEXTS = {
     "rep_sending": {"ru": "Отправка сообщения...", "uz": "Xabar yuborilmoqda..."},
     "rep_sent": {"ru": "✅ Ваше сообщение успешно отправлено разработчику. Спасибо!", "uz": "✅ Xabaringiz dasturchiga muvaffaqiyatli yuborildi. Rahmat!"},
     "rep_fail": {"ru": "❌ Произошла ошибка при отправке email, попробуйте позже.", "uz": "❌ Elektron pochta yuborishda xatolik yuz berdi, keyinroq urinib ko'ring."},
-    "rep_no_mail": {"ru": "✅ Внимание: Email не настроен. Ошибка записана локально.", "uz": "✅ Diqqat: Email sozlanmagan. Xatolik lokal saqlandi."}
+    "rep_no_mail": {"ru": "✅ Внимание: Email не настроен. Ошибка записана локально.", "uz": "✅ Diqqat: Email sozlanmagan. Xatolik lokal saqlandi."},
+    
+    # Reviewer L1/L2 Menus
+    "btn_l1_queue": {"ru": "📋 Очередь заявок", "uz": "📋 Arizalar navbati"},
+    "btn_l1_branches": {"ru": "📊 По филиалам", "uz": "📊 Filiallar bo'yicha"},
+    "btn_l2_pending": {"ru": "📋 Ожидающие подтверждения", "uz": "📋 Tasdiqlashni kutayotganlar"},
+
+    # Reviewer Card / Actions
+    "btn_l1_start": {"ru": "📂 Начать проверку", "uz": "📂 Tekshirishni boshlash"},
+    "btn_l1_detail": {"ru": "🔍 Разобрать по одной", "uz": "🔍 Bittalab ko'rib chiqish"},
+    "btn_approve_all": {"ru": "✅ Одобрить всё", "uz": "✅ Barchasini tasdiqlash"},
+    "btn_reject_all": {"ru": "❌ Отклонить всё", "uz": "❌ Barchasini rad etish"},
+    "btn_back_branches": {"ru": "◀ Назад к филиалам", "uz": "◀ Filiallarga qaytish"},
+    "btn_back_queue": {"ru": "◀ К очереди", "uz": "◀ Navbatga qaytish"},
+    "btn_approve": {"ru": "✅ Одобрить", "uz": "✅ Tasdiqlash"},
+    "btn_confirm": {"ru": "✅ Подтвердить", "uz": "✅ Tasdiqlash"},
+    "btn_reject": {"ru": "❌ Отказать", "uz": "❌ Rad etish"},
+    "btn_nav_prev": {"ru": "◀ Назад", "uz": "◀ Orqaga"},
+    "btn_nav_next": {"ru": "▶ Следующая", "uz": "▶ Keyingisi"},
+    "btn_back_list": {"ru": "◀ К списку", "uz": "◀ Ro'yxatga qaytish"},
+    "btn_back_branch": {"ru": "◀ К филиалу", "uz": "◀ Filialga qaytish"},
+    "btn_reject_reason_new": {"ru": "📋 Новая техника (не нужна замена)", "uz": "📋 Yangi texnika (almashtirish shart emas)"},
+    "btn_reject_reason_crit": {"ru": "❌ Не соответствует критериям", "uz": "❌ Mezonlarga mos kelmaydi"},
+
+    # Reviewer L2
+    "btn_l2_approve_all": {"ru": "✅ Одобрить все {count}", "uz": "✅ Barchasini ({count}) tasdiqlash"},
+    "btn_l2_reject_all": {"ru": "❌ Отклонить все", "uz": "❌ Barchasini rad etish"},
+    "btn_l2_revoke": {"ru": "↩ Отозвать заявку", "uz": "↩ Arizani bekor qilish"},
+    "btn_l2_rj_no_confirm": {"ru": "📞 Руководитель не подтвердил", "uz": "📞 Rahbar tasdiqlamadi"},
+    "btn_l2_rj_in_progress": {"ru": "🔄 Уже в процессе замены", "uz": "🔄 Almashtirish jarayonida"},
+    "btn_l2_rj_no_priority": {"ru": "📋 Нет в приоритетах", "uz": "📋 Ustuvor ro'yxatda yo'q"},
+
+    # Reviewer Messages
+    "l1_queue_empty": {"ru": "✅ Очередь пуста — новых заявок нет!", "uz": "✅ Navbat bo'sh — yangi arizalar yo'q!"},
+    "l1_branches_empty": {"ru": "✅ Нет новых заявок ни в одном филиале.", "uz": "✅ Hech bir filialda yangi ariza yo'q."},
+    "l1_branch_done": {"ru": "✅ Все заявки этого филиала обработаны!", "uz": "✅ Ushbu filialning barcha arizalari ko'rib chiqildi!"},
+    "l1_all_done": {"ru": "✅ Все заявки обработаны!", "uz": "✅ Barcha arizalar ko'rib chiqildi!"},
+    "l1_all_viewed": {"ru": "✅ Все заявки просмотрены!", "uz": "✅ Barcha arizalar ko'rib chiqildi!"},
+    "l1_confirm_approve": {"ru": "⚠️ *Вы уверены?*\n\nОдобрить все *{count}* заявок по филиалу *{branch}*?", "uz": "⚠️ *Ishonchingiz komilmi?*\n\n*{branch}* filiali bo'yicha barcha *{count}* ta arizani tasdiqlaysizmi?"},
+    "l1_confirm_reject": {"ru": "⚠️ *Вы уверены?*\n\nОтклонить все *{count}* заявок по филиалу *{branch}*?", "uz": "⚠️ *Ishonchingiz komilmi?*\n\n*{branch}* filiali bo'yicha barcha *{count}* ta arizani rad etasizmi?"},
+    "btn_yes_approve": {"ru": "✅ Да, одобрить все {count}", "uz": "✅ Ha, barchasini ({count}) tasdiqlash"},
+    "btn_yes_reject": {"ru": "❌ Да, отклонить все {count}", "uz": "❌ Ha, barchasini ({count}) rad etish"},
+    "btn_no_cancel": {"ru": "❌ Нет, отмена", "uz": "❌ Yo'q, bekor qilish"},
+    "btn_no_cancel_arr": {"ru": "◀ Нет, отмена", "uz": "◀ Yo'q, bekor qilish"},
+    "l1_choose_rj_reason": {"ru": "Выберите причину отказа:", "uz": "Rad etish sababini tanlang:"},
+    "alert_already_processed": {"ru": "Заявка уже обработана", "uz": "Ariza allaqachon ko'rib chiqilgan"},
+    "alert_approved": {"ru": "✅ Одобрено!", "uz": "✅ Tasdiqlandi!"},
+    "alert_rejected": {"ru": "❌ Отклонена", "uz": "❌ Rad etildi"},
+    "alert_confirmed": {"ru": "✅ Подтверждено!", "uz": "✅ Tasdiqlandi!"},
+    "alert_revoked": {"ru": "↩ Заявка #{req_id} отозвана", "uz": "↩ Ariza #{req_id} bekor qilindi"}
 }
 
 def _(key: str, lang: str = "uz", **kwargs) -> str:

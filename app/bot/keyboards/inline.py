@@ -5,8 +5,8 @@ def get_inline_language_kb() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
-                InlineKeyboardButton(text="🇺🇿 O'zbek tili", callback_data="lang_uz"),
-                InlineKeyboardButton(text="🇷🇺 Русский язык", callback_data="lang_ru")
+                InlineKeyboardButton(text="🇺🇿 Узбекский", callback_data="lang_uz"),
+                InlineKeyboardButton(text="🇷🇺 Русский", callback_data="lang_ru")
             ]
         ]
     )

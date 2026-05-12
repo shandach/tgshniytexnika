@@ -15,22 +15,22 @@ logger = logging.getLogger(__name__)
 router = Router()
 
 STATUS_EMOJI = {
-    "new": "🆕 Новая",
-    "in_progress": "⏳ В обработке / Сломан",
-    "approved_l1": "⏳ В обработке (L1)",
-    "closed": "🔒 Закрыта"
+    "new": {"ru": "🆕 Новая", "uz": "🆕 Yangi"},
+    "in_progress": {"ru": "⏳ В обработке / Сломан", "uz": "⏳ Jarayonda / Buzilgan"},
+    "approved_l1": {"ru": "⏳ В обработке (L1)", "uz": "⏳ Jarayonda (L1)"},
+    "closed": {"ru": "🔒 Закрыта", "uz": "🔒 Yopilgan"}
 }
 
 DECISION_EMOJI = {
-    "approved": "✅ Одобрено",
-    "rejected": "❌ Отказано",
-    "repaired": "🔧 Починен"
+    "approved": {"ru": "✅ Одобрено", "uz": "✅ Tasdiqlangan"},
+    "rejected": {"ru": "❌ Отказано", "uz": "❌ Rad etilgan"},
+    "repaired": {"ru": "🔧 Починен", "uz": "🔧 Ta'mirlangan"}
 }
 
 TYPE_LABELS = {
-    "replacement": "Замена",
-    "new_issue": "Выдача",
-    "repair": "Поломка"
+    "replacement": {"ru": "Замена", "uz": "Almashtirish"},
+    "new_issue": {"ru": "Выдача", "uz": "Ajratish"},
+    "repair": {"ru": "Поломка", "uz": "Buzilish"}
 }
 
 
@@ -50,15 +50,15 @@ async def _generate_my_requests_menu(session: AsyncSession, tg_user_id: int, lan
     builder = InlineKeyboardBuilder()
 
     for req in reqs_to_show:
-        r_type = TYPE_LABELS.get(req.request_type, req.request_type)
+        r_type = TYPE_LABELS.get(req.request_type, {}).get(lang, req.request_type)
         if req.request_type == "repair":
             emoji = "🛠"
         else:
             emoji = "💻" if req.equipment_type == "computer" else "🖨"
             
-        status_h = STATUS_EMOJI.get(req.status, req.status)
+        status_h = STATUS_EMOJI.get(req.status, {}).get(lang, req.status)
         if req.status == "closed" and req.final_decision:
-            status_h = DECISION_EMOJI.get(req.final_decision, status_h)
+            status_h = DECISION_EMOJI.get(req.final_decision, {}).get(lang, status_h)
             
         btn_text = f"{emoji} {r_type} #{req.request_number} | {status_h}"
         builder.button(text=btn_text, callback_data=f"myreq_{req.id}")
@@ -67,7 +67,8 @@ async def _generate_my_requests_menu(session: AsyncSession, tg_user_id: int, lan
     
     text = _("status_header", lang)
     if len(requests) > 5:
-        text += f"\n\nПоказаны последние 5 из {len(requests)} заявок."
+        more_text = "Показаны последние 5 из {total} заявок." if lang == "ru" else "Jami {total} tadan so'nggi 5 tasi ko'rsatildi."
+        text += f"\n\n{more_text.format(total=len(requests))}"
         
     return text, builder.as_markup()
 
@@ -97,54 +98,77 @@ async def back_to_my_reqs(callback: CallbackQuery, session: AsyncSession, state:
 @router.callback_query(F.data.startswith("myreq_"))
 async def my_req_detail(callback: CallbackQuery, session: AsyncSession, state: FSMContext):
     """Открывает детальную карточку заявки сотрудника."""
+    data = await state.get_data()
+    lang = data.get("language", "uz")
+    
     req_id = int(callback.data.split("_")[1])
     stmt = select(Request).where(Request.id == req_id)
     req = await session.scalar(stmt)
     
     if not req:
-        await callback.answer("Заявка не найдена")
+        await callback.answer(_("alert_already_processed", lang))
         return
         
-    r_type = TYPE_LABELS.get(req.request_type, req.request_type)
-    status_h = STATUS_EMOJI.get(req.status, req.status)
+    r_type = TYPE_LABELS.get(req.request_type, {}).get(lang, req.request_type)
+    status_h = STATUS_EMOJI.get(req.status, {}).get(lang, req.status)
     if req.status == "closed" and req.final_decision:
-        status_h += f" -> {DECISION_EMOJI.get(req.final_decision)}"
+        status_h += f" -> {DECISION_EMOJI.get(req.final_decision, {}).get(lang, status_h)}"
         
+    comp_text = "Компьютер" if lang == "ru" else "Kompyuter"
+    prin_text = "Принтер" if lang == "ru" else "Printer"
+    type_text = comp_text if req.equipment_type == 'computer' else prin_text
+    
+    req_word = "Заявка" if lang == "ru" else "Ariza"
+    type_word = "Тип" if lang == "ru" else "Turi"
+    tech_word = "Техника" if lang == "ru" else "Texnika"
+    branch_word = "Филиал" if lang == "ru" else "Filial"
+    status_word = "Статус" if lang == "ru" else "Holati"
+    
     text = (
-        f"📄 *Заявка #{req.request_number}*\n\n"
-        f"🔸 *Тип:* {r_type}\n"
-        f"🔸 *Техника:* {'Компьютер' if req.equipment_type == 'computer' else 'Принтер'}\n"
-        f"🔸 *Филиал:* {req.branch_name_snapshot} ({req.bhm_code_snapshot})\n"
-        f"🔸 *Статус:* {status_h}\n"
+        f"📄 *{req_word} #{req.request_number}*\n\n"
+        f"🔸 *{type_word}:* {r_type}\n"
+        f"🔸 *{tech_word}:* {type_text}\n"
+        f"🔸 *{branch_word}:* {req.branch_name_snapshot} ({req.bhm_code_snapshot})\n"
+        f"🔸 *{status_word}:* {status_h}\n"
     )
     if req.inventory_code_snapshot:
-        text += f"🔸 *Инвентарник:* {req.inventory_code_snapshot}\n"
+        inv_word = "Инвентарник" if lang == "ru" else "Inventar"
+        text += f"🔸 *{inv_word}:* {req.inventory_code_snapshot}\n"
     if req.reason_text:
-        text += f"🔸 *Причина/Комментарий:* _{req.reason_text}_\n"
+        reas_word = "Причина/Комментарий" if lang == "ru" else "Sabab/Izoh"
+        text += f"🔸 *{reas_word}:* _{req.reason_text}_\n"
     if req.problem_text:
-        text += f"🔸 *Проблема:* _{req.problem_text}_\n"
+        prob_word = "Проблема" if lang == "ru" else "Muammo"
+        text += f"🔸 *{prob_word}:* _{req.problem_text}_\n"
     if req.reject_reason:
-        text += f"🔸 *Причина отказа:* ❌ {req.reject_reason}\n"
+        rej_word = "Причина отказа" if lang == "ru" else "Rad etish sababi"
+        text += f"🔸 *{rej_word}:* ❌ {req.reject_reason}\n"
 
     builder = InlineKeyboardBuilder()
 
+    btn_back = _("btn_back_list", lang)
+
     # Точка входа для самоподтверждения ремонта!
     if req.request_type == "repair" and req.status == "in_progress":
-        text += "\n\n🛠 *Проверьте, пожалуйста, всё ли работает?*"
-        builder.button(text="👍 Да, всё работает", callback_data=f"rep_yes_{req.id}")
-        builder.button(text="👎 Нет, проблема осталась", callback_data=f"rep_no_{req.id}")
+        text += "\n\n🛠 *Проверьте, пожалуйста, всё ли работает?*" if lang == "ru" else "\n\n🛠 *Iltimos, tekshiring, hammasi ishlavotimi?*"
+        btn_yes = "👍 Да, всё работает" if lang == "ru" else "👍 Ha, hammasi ishlavoti"
+        btn_no = "👎 Нет, проблема осталась" if lang == "ru" else "👎 Yo'q, muammo qoldi"
+        builder.button(text=btn_yes, callback_data=f"rep_yes_{req.id}")
+        builder.button(text=btn_no, callback_data=f"rep_no_{req.id}")
         builder.adjust(1)
         # Отдельный Row для "Назад"
-        builder.row(InlineKeyboardButton(text="◀ Назад к списку", callback_data="myreqs_list"))
+        builder.row(InlineKeyboardButton(text=btn_back, callback_data="myreqs_list"))
     else:
-        builder.row(InlineKeyboardButton(text="◀ Назад к списку", callback_data="myreqs_list"))
+        builder.row(InlineKeyboardButton(text=btn_back, callback_data="myreqs_list"))
 
     await callback.message.edit_text(text, parse_mode="Markdown", reply_markup=builder.as_markup())
 
 
 @router.callback_query(F.data.startswith("rep_yes_"))
-async def repair_confirmed_yes(callback: CallbackQuery, session: AsyncSession):
+async def repair_confirmed_yes(callback: CallbackQuery, session: AsyncSession, state: FSMContext):
     """Сотрудник подтвердил починку."""
+    data = await state.get_data()
+    lang = data.get("language", "uz")
     req_id = int(callback.data.split("_")[2])
     stmt = select(Request).where(Request.id == req_id)
     req = await session.scalar(stmt)
@@ -154,28 +178,33 @@ async def repair_confirmed_yes(callback: CallbackQuery, session: AsyncSession):
         req.final_decision = "repaired"
         await session.commit()
         
+        msg = f"✅ *Супер!* Рады слышать, что всё работает.\n\nЗаявка #{req.request_number} успешно закрыта." if lang == "ru" else f"✅ *Zo'r!* Hammasi ishlayotganidan xursandmiz.\n\nAriza #{req.request_number} muvaffaqiyatli yopildi."
+        btn_back = _("btn_back_list", lang)
+        
         await callback.message.edit_text(
-            f"✅ *Супер!* Рады слышать, что всё работает.\n\nЗаявка #{req.request_number} успешно закрыта.",
+            msg,
             parse_mode="Markdown",
-            reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="◀ Назад", callback_data="myreqs_list")]])
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text=btn_back, callback_data="myreqs_list")]])
         )
     else:
-        await callback.answer("Заявка уже закрыта или недоступна.")
+        await callback.answer(_("alert_already_processed", lang))
 
 
 @router.callback_query(F.data.startswith("rep_no_"))
 async def repair_escalate_no(callback: CallbackQuery, session: AsyncSession, state: FSMContext):
     """Сотрудник нажал 'Нет', требуем коммент."""
+    data = await state.get_data()
+    lang = data.get("language", "uz")
     req_id = int(callback.data.split("_")[2])
     
     await state.update_data(escalate_req_id=req_id)
     await state.set_state(EscalationForm.waiting_for_escalation_comment)
     
-    kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="Отмена", callback_data=f"myreq_{req_id}")]])
-    await callback.message.edit_text(
-        "📝 Опишите, пожалуйста, подробно: что именно до сих пор беспокоит или осталась сломано?",
-        reply_markup=kb
-    )
+    btn_cancel = "Отмена" if lang == "ru" else "Bekor qilish"
+    msg = "📝 Опишите, пожалуйста, подробно: что именно до сих пор беспокоит или осталась сломано?" if lang == "ru" else "📝 Iltimos, batafsil yozing: aynan nima haligacha bezovta qilyapti yoki buzilganicha qoldi?"
+    
+    kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text=btn_cancel, callback_data=f"myreq_{req_id}")]])
+    await callback.message.edit_text(msg, reply_markup=kb)
 
 
 @router.message(EscalationForm.waiting_for_escalation_comment)
@@ -202,7 +231,5 @@ async def process_escalation_comment(message: Message, state: FSMContext, sessio
     lang = data.get("language", "uz") 
     await state.update_data(language=lang)
 
-    await message.answer(
-        f"🚨 Спасибо! Информация по заявке #{req.request_number if req else ''} передана руководителям.\nС вами свяжутся в ближайшее время.",
-        reply_markup=None # Использовать базовую клавиатуру тут не обязательно, она осталась
-    )
+    msg = f"🚨 Спасибо! Информация по заявке #{req.request_number if req else ''} передана руководителям.\nС вами свяжутся в ближайшее время." if lang == "ru" else f"🚨 Rahmat! Ariza #{req.request_number if req else ''} bo'yicha ma'lumot rahbarlarga yetkazildi.\nTez orada siz bilan bog'lanishadi."
+    await message.answer(msg, reply_markup=None)

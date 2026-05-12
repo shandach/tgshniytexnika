@@ -53,33 +53,36 @@ def get_fio_reuse_kb(fio: str, position: str, lang: str = "uz") -> ReplyKeyboard
     return kb
 
 
-def get_reviewer_l1_menu_kb(mode: str = "default") -> ReplyKeyboardMarkup:
+def get_reviewer_l1_menu_kb(mode: str = "default", lang: str = "uz") -> ReplyKeyboardMarkup:
     """
     Динамическое меню L1-проверяющего.
     mode='queue'  → пользователь в очереди, показываем только "По филиалам"
     mode='branch' → пользователь в филиалах, показываем только "Очередь заявок"
     mode='default'→ показываем обе кнопки (начальный экран)
     """
+    btn_queue = _("btn_l1_queue", lang)
+    btn_branch = _("btn_l1_branches", lang)
+    
     if mode == "queue":
-        buttons = [[KeyboardButton(text="📊 По филиалам")]]
+        buttons = [[KeyboardButton(text=btn_branch)]]
     elif mode == "branch":
-        buttons = [[KeyboardButton(text="📋 Очередь заявок")]]
+        buttons = [[KeyboardButton(text=btn_queue)]]
     else:
-        buttons = [[KeyboardButton(text="📋 Очередь заявок"), KeyboardButton(text="📊 По филиалам")]]
+        buttons = [[KeyboardButton(text=btn_queue), KeyboardButton(text=btn_branch)]]
     return ReplyKeyboardMarkup(
         keyboard=buttons,
         resize_keyboard=True,
-        input_field_placeholder="Выберите действие",
+        input_field_placeholder=_( "ph_main", lang),
     )
 
 
-def get_reviewer_l2_menu_kb() -> ReplyKeyboardMarkup:
+def get_reviewer_l2_menu_kb(lang: str = "uz") -> ReplyKeyboardMarkup:
     """Главное меню для L2-проверяющего."""
     return ReplyKeyboardMarkup(
         keyboard=[
-            [KeyboardButton(text="📋 Ожидающие подтверждения")],
+            [KeyboardButton(text=_( "btn_l2_pending", lang))],
         ],
         resize_keyboard=True,
-        input_field_placeholder="Выберите действие",
+        input_field_placeholder=_( "ph_main", lang),
     )
 

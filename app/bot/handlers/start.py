@@ -21,6 +21,12 @@ async def cmd_start(message: Message, state: FSMContext, session: AsyncSession):
     """Вход и приветствие. Разный флоу для сотрудников и проверяющих."""
     # Регистрируем/обновляем TG аккаунт
     account = await get_or_create_tg_account(session, message.from_user.id)
+
+    # Автоматически сохраняем username и full_name из Telegram
+    tg_user = message.from_user
+    account.username = tg_user.username  # может быть None
+    account.full_name = tg_user.full_name or tg_user.first_name
+    await session.commit()
     
     # Сбрасываем любые стейты
     await state.clear()
@@ -32,17 +38,15 @@ async def cmd_start(message: Message, state: FSMContext, session: AsyncSession):
     # Разделение по ролям
     if account.role == TgRole.reviewer_l1:
         await message.answer(
-            "👋 Добро пожаловать, проверяющий L1!\n\n"
-            "Используйте меню для работы с заявками.",
-            reply_markup=get_reviewer_l1_menu_kb(),
+            "👋 Добро пожаловать, проверяющий L1!\n\n" if lang == "ru" else "👋 Xush kelibsiz, L1 tekshiruvchi!\n\n",
+            reply_markup=get_reviewer_l1_menu_kb(lang=lang),
         )
         return
     
     if account.role == TgRole.reviewer_l2:
         await message.answer(
-            "👋 Добро пожаловать, проверяющий L2!\n\n"
-            "Используйте меню для подтверждения заявок.",
-            reply_markup=get_reviewer_l2_menu_kb(),
+            "👋 Добро пожаловать, проверяющий L2!\n\n" if lang == "ru" else "👋 Xush kelibsiz, L2 tekshiruvchi!\n\n",
+            reply_markup=get_reviewer_l2_menu_kb(lang=lang),
         )
         return
     
@@ -110,6 +114,17 @@ async def process_inline_language(callback: CallbackQuery, state: FSMContext, se
     # Сохраняем в текущий стейт
     await state.update_data(language=lang)
     
-    text = "✅ Til o'zgartirildi! Davom etishingiz mumkin." if lang == "uz" else "✅ Язык изменен! Можете продолжать."
+    text = "✅ Til o'zgartirildi! Asosiy menyu:" if lang == "uz" else "✅ Язык изменен! Главное меню:"
     await callback.message.edit_text(text)
+    
+    if account.role == TgRole.reviewer_l1:
+        await callback.message.answer(text, reply_markup=get_reviewer_l1_menu_kb(lang=lang))
+    elif account.role == TgRole.reviewer_l2:
+        await callback.message.answer(text, reply_markup=get_reviewer_l2_menu_kb(lang=lang))
+    else:
+        # Для обычных сотрудников отправляем меню только если они уже авторизованы в филиале
+        data = await state.get_data()
+        if data.get("branch_id"):
+            await callback.message.answer(text, reply_markup=get_main_menu_kb(lang=lang))
+            
     await callback.answer()

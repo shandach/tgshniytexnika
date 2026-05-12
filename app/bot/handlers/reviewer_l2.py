@@ -15,6 +15,8 @@ from sqlalchemy import select, func, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.bot.filters import IsReviewerL2
+from aiogram.fsm.context import FSMContext
+from app.bot.utils.texts import _, get_text_variants
 from app.bot.keyboards.default import get_reviewer_l2_menu_kb
 from app.models.request import Request, RequestStatus, FinalDecision
 
@@ -53,7 +55,7 @@ async def _get_approved_l1_by_branch(session: AsyncSession, bhm_code: str):
 
 # ── Главное меню L2 ─────────────────────────────────────────────────────
 
-@router.message(F.text == "📋 Ожидающие подтверждения", IsReviewerL2())
+@router.message(F.text.in_(get_text_variants("btn_l2_pending")), IsReviewerL2())
 @router.callback_query(F.data == "l2_back_main", IsReviewerL2())
 async def show_l2_queue(event, session: AsyncSession):
     """Сводка ожидающих подтверждения L2 — группировка по филиалам."""
@@ -103,13 +105,15 @@ async def show_l2_queue(event, session: AsyncSession):
 # ── Сводка по филиалу ───────────────────────────────────────────────────
 
 @router.callback_query(F.data.startswith("l2_branch_"), IsReviewerL2())
-async def show_l2_branch(callback: CallbackQuery, session: AsyncSession):
+async def show_l2_branch(callback: CallbackQuery, state: FSMContext, session: AsyncSession):
+    data = await state.get_data()
+    lang = data.get("language", "uz")
     """Показать заявки филиала для L2."""
     bhm_code = callback.data.replace("l2_branch_", "")
     requests = await _get_approved_l1_by_branch(session, bhm_code)
 
     if not requests:
-        await callback.message.edit_text("✅ Все заявки этого филиала обработаны!")
+        await callback.message.edit_text(_("l1_branch_done", lang))
         await callback.answer()
         return
 
@@ -131,10 +135,10 @@ async def show_l2_branch(callback: CallbackQuery, session: AsyncSession):
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [
             InlineKeyboardButton(text=f"✅ Одобрить все {len(requests)}", callback_data=f"l2_approve_all_{bhm_code}"),
-            InlineKeyboardButton(text="🔍 Разобрать", callback_data=f"l2_detail_branch_{bhm_code}_0"),
+            InlineKeyboardButton(text=_("btn_l1_detail", lang), callback_data=f"l2_detail_branch_{bhm_code}_0"),
         ],
-        [InlineKeyboardButton(text="❌ Отклонить все", callback_data=f"l2_reject_all_{bhm_code}")],
-        [InlineKeyboardButton(text="◀ Назад", callback_data="l2_back_main")],
+        [InlineKeyboardButton(text=_("btn_l2_reject_all", lang), callback_data=f"l2_reject_all_{bhm_code}")],
+        [InlineKeyboardButton(text=_("btn_nav_prev", lang), callback_data="l2_back_main")],
     ])
 
     await callback.message.edit_text("\n".join(lines), reply_markup=kb, parse_mode="Markdown")
@@ -144,7 +148,9 @@ async def show_l2_branch(callback: CallbackQuery, session: AsyncSession):
 # ── Разобрать по одной ───────────────────────────────────────────────────
 
 @router.callback_query(F.data.startswith("l2_detail_branch_"), IsReviewerL2())
-async def show_l2_detail(callback: CallbackQuery, session: AsyncSession):
+async def show_l2_detail(callback: CallbackQuery, state: FSMContext, session: AsyncSession):
+    data = await state.get_data()
+    lang = data.get("language", "uz")
     """Карточка заявки для L2."""
     parts = callback.data.replace("l2_detail_branch_", "").rsplit("_", 1)
     bhm_code = parts[0]
@@ -152,7 +158,7 @@ async def show_l2_detail(callback: CallbackQuery, session: AsyncSession):
 
     requests = await _get_approved_l1_by_branch(session, bhm_code)
     if not requests or idx >= len(requests):
-        await callback.message.edit_text("✅ Все заявки обработаны!")
+        await callback.message.edit_text(_("l1_all_done", lang))
         await callback.answer()
         return
 
@@ -172,16 +178,16 @@ async def show_l2_detail(callback: CallbackQuery, session: AsyncSession):
 
     buttons = [
         [
-            InlineKeyboardButton(text="✅ Подтвердить", callback_data=f"l2_approve_{req.id}_{bhm_code}_{idx}"),
-            InlineKeyboardButton(text="❌ Отказать", callback_data=f"l2_reject_{req.id}_{bhm_code}"),
+            InlineKeyboardButton(text=_("btn_confirm", lang), callback_data=f"l2_approve_{req.id}_{bhm_code}_{idx}"),
+            InlineKeyboardButton(text=_("btn_reject", lang), callback_data=f"l2_reject_{req.id}_{bhm_code}"),
         ],
     ]
     if idx + 1 < len(requests):
         buttons.append([InlineKeyboardButton(
-            text="⏭ Следующая",
+            text=_("btn_nav_next", lang),
             callback_data=f"l2_detail_branch_{bhm_code}_{idx + 1}",
         )])
-    buttons.append([InlineKeyboardButton(text="◀ К филиалу", callback_data=f"l2_branch_{bhm_code}")])
+    buttons.append([InlineKeyboardButton(text=_("btn_back_branch", lang), callback_data=f"l2_branch_{bhm_code}")])
 
     kb = InlineKeyboardMarkup(inline_keyboard=buttons)
 
@@ -196,7 +202,9 @@ async def show_l2_detail(callback: CallbackQuery, session: AsyncSession):
 # ── Одобрить / Отклонить одну ────────────────────────────────────────────
 
 @router.callback_query(F.data.startswith("l2_approve_"), IsReviewerL2())
-async def l2_approve_one(callback: CallbackQuery, session: AsyncSession):
+async def l2_approve_one(callback: CallbackQuery, state: FSMContext, session: AsyncSession):
+    data = await state.get_data()
+    lang = data.get("language", "uz")
     """L2 подтверждает заявку → closed + approved."""
     parts = callback.data.replace("l2_approve_", "").split("_")
     req_id = int(parts[0])
@@ -205,7 +213,7 @@ async def l2_approve_one(callback: CallbackQuery, session: AsyncSession):
 
     req = await session.get(Request, req_id)
     if not req or req.status != RequestStatus.approved_l1:
-        await callback.answer("Заявка уже обработана", show_alert=True)
+        await callback.answer(_("alert_already_processed", lang), show_alert=True)
         return
 
     req.status = RequestStatus.closed
@@ -214,45 +222,49 @@ async def l2_approve_one(callback: CallbackQuery, session: AsyncSession):
     req.closed_at = datetime.now(timezone.utc)
     await session.commit()
 
-    await callback.answer("✅ Подтверждено!", show_alert=True)
+    await callback.answer(_("alert_confirmed", lang), show_alert=True)
 
     # Показать следующую заявку из того же филиала
     remaining = await _get_approved_l1_by_branch(session, bhm_code)
     if remaining:
-        await show_l2_detail.__wrapped__(callback, session) if hasattr(show_l2_detail, '__wrapped__') else None
+        await show_l2_detail.__wrapped__(callback, state, session) if hasattr(show_l2_detail, '__wrapped__') else None
         # Проще: вернуть к списку филиала
-        await show_l2_branch.__wrapped__(callback, session) if hasattr(show_l2_branch, '__wrapped__') else None
+        await show_l2_branch.__wrapped__(callback, state, session) if hasattr(show_l2_branch, '__wrapped__') else None
         # Fallback
         callback.data = f"l2_branch_{bhm_code}"
-        await show_l2_branch(callback, session)
+        await show_l2_branch(callback, state, session)
     else:
         await callback.message.edit_text(
             f"✅ Все заявки по {bhm_code} обработаны!",
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="◀ К списку", callback_data="l2_back_main")]
+                [InlineKeyboardButton(text=_("btn_back_list", lang), callback_data="l2_back_main")]
             ]),
         )
 
 
 @router.callback_query(F.data.startswith("l2_reject_"), IsReviewerL2())
-async def l2_reject_one(callback: CallbackQuery, session: AsyncSession):
+async def l2_reject_one(callback: CallbackQuery, state: FSMContext, session: AsyncSession):
+    data = await state.get_data()
+    lang = data.get("language", "uz")
     """L2 отклоняет заявку — причины."""
     parts = callback.data.replace("l2_reject_", "").split("_")
     req_id = parts[0]
     bhm_code = parts[1]
 
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="📞 Руководитель не подтвердил", callback_data=f"l2_rj_{req_id}_{bhm_code}_no_confirm")],
-        [InlineKeyboardButton(text="🔄 Уже в процессе замены", callback_data=f"l2_rj_{req_id}_{bhm_code}_in_progress")],
-        [InlineKeyboardButton(text="📋 Нет в приоритетах", callback_data=f"l2_rj_{req_id}_{bhm_code}_no_priority")],
-        [InlineKeyboardButton(text="◀ Назад", callback_data=f"l2_branch_{bhm_code}")],
+        [InlineKeyboardButton(text=_("btn_l2_rj_no_confirm", lang), callback_data=f"l2_rj_{req_id}_{bhm_code}_no_confirm")],
+        [InlineKeyboardButton(text=_("btn_l2_rj_in_progress", lang), callback_data=f"l2_rj_{req_id}_{bhm_code}_in_progress")],
+        [InlineKeyboardButton(text=_("btn_l2_rj_no_priority", lang), callback_data=f"l2_rj_{req_id}_{bhm_code}_no_priority")],
+        [InlineKeyboardButton(text=_("btn_nav_prev", lang), callback_data=f"l2_branch_{bhm_code}")],
     ])
-    await callback.message.edit_text("Выберите причину отказа:", reply_markup=kb)
+    await callback.message.edit_text(_("l1_choose_rj_reason", lang), reply_markup=kb)
     await callback.answer()
 
 
 @router.callback_query(F.data.startswith("l2_rj_"), IsReviewerL2())
-async def l2_reject_with_reason(callback: CallbackQuery, session: AsyncSession):
+async def l2_reject_with_reason(callback: CallbackQuery, state: FSMContext, session: AsyncSession):
+    data = await state.get_data()
+    lang = data.get("language", "uz")
     """Применить отказ L2."""
     parts = callback.data.replace("l2_rj_", "").split("_")
     req_id = int(parts[0])
@@ -267,7 +279,7 @@ async def l2_reject_with_reason(callback: CallbackQuery, session: AsyncSession):
 
     req = await session.get(Request, req_id)
     if not req or req.status != RequestStatus.approved_l1:
-        await callback.answer("Заявка уже обработана", show_alert=True)
+        await callback.answer(_("alert_already_processed", lang), show_alert=True)
         return
 
     req.status = RequestStatus.closed
@@ -277,23 +289,25 @@ async def l2_reject_with_reason(callback: CallbackQuery, session: AsyncSession):
     req.closed_at = datetime.now(timezone.utc)
     await session.commit()
 
-    await callback.answer("❌ Отклонено", show_alert=True)
+    await callback.answer(_("alert_rejected", lang), show_alert=True)
 
     # Вернуться к филиалу
     callback.data = f"l2_branch_{bhm_code}"
-    await show_l2_branch(callback, session)
+    await show_l2_branch(callback, state, session)
 
 
 # ── Массовые операции ────────────────────────────────────────────────────
 
 @router.callback_query(F.data.startswith("l2_approve_all_"), IsReviewerL2())
-async def l2_approve_all(callback: CallbackQuery, session: AsyncSession):
+async def l2_approve_all(callback: CallbackQuery, state: FSMContext, session: AsyncSession):
+    data = await state.get_data()
+    lang = data.get("language", "uz")
     """Одобрить все заявки филиала."""
     bhm_code = callback.data.replace("l2_approve_all_", "")
     requests = await _get_approved_l1_by_branch(session, bhm_code)
 
     if not requests:
-        await callback.answer("Нет заявок для одобрения", show_alert=True)
+        await callback.answer(_("alert_already_processed", lang), show_alert=True)
         return
 
     # Подсчёт техники для сводки
@@ -321,8 +335,8 @@ async def l2_approve_all(callback: CallbackQuery, session: AsyncSession):
     )
 
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="↩ Отозвать заявку", callback_data=f"l2_revoke_{bhm_code}")],
-        [InlineKeyboardButton(text="◀ К списку", callback_data="l2_back_main")],
+        [InlineKeyboardButton(text=_("btn_l2_revoke", lang), callback_data=f"l2_revoke_{bhm_code}")],
+        [InlineKeyboardButton(text=_("btn_back_list", lang), callback_data="l2_back_main")],
     ])
 
     await callback.message.edit_text(text, reply_markup=kb, parse_mode="Markdown")
@@ -330,7 +344,9 @@ async def l2_approve_all(callback: CallbackQuery, session: AsyncSession):
 
 
 @router.callback_query(F.data.startswith("l2_reject_all_"), IsReviewerL2())
-async def l2_reject_all(callback: CallbackQuery, session: AsyncSession):
+async def l2_reject_all(callback: CallbackQuery, state: FSMContext, session: AsyncSession):
+    data = await state.get_data()
+    lang = data.get("language", "uz")
     """Отклонить все заявки филиала."""
     bhm_code = callback.data.replace("l2_reject_all_", "")
     requests = await _get_approved_l1_by_branch(session, bhm_code)
@@ -351,7 +367,9 @@ async def l2_reject_all(callback: CallbackQuery, session: AsyncSession):
 # ── Отозвать заявку ───────────────────────────────────────────────────────
 
 @router.callback_query(F.data.startswith("l2_revoke_"), IsReviewerL2())
-async def l2_revoke_list(callback: CallbackQuery, session: AsyncSession):
+async def l2_revoke_list(callback: CallbackQuery, state: FSMContext, session: AsyncSession):
+    data = await state.get_data()
+    lang = data.get("language", "uz")
     """Показать недавно одобренные для отзыва."""
     bhm_code = callback.data.replace("l2_revoke_", "")
 
@@ -369,7 +387,7 @@ async def l2_revoke_list(callback: CallbackQuery, session: AsyncSession):
     requests = (await session.scalars(stmt)).all()
 
     if not requests:
-        await callback.answer("Нет заявок для отзыва", show_alert=True)
+        await callback.answer(_("alert_already_processed", lang), show_alert=True)
         return
 
     buttons = []
@@ -378,7 +396,7 @@ async def l2_revoke_list(callback: CallbackQuery, session: AsyncSession):
             text=f"↩ #{r.request_number} — {r.employee_fio_snapshot}",
             callback_data=f"l2_do_revoke_{r.id}_{bhm_code}",
         )])
-    buttons.append([InlineKeyboardButton(text="◀ Назад", callback_data="l2_back_main")])
+    buttons.append([InlineKeyboardButton(text=_("btn_nav_prev", lang), callback_data="l2_back_main")])
 
     await callback.message.edit_text(
         "Выберите заявку для отзыва:",
@@ -388,7 +406,9 @@ async def l2_revoke_list(callback: CallbackQuery, session: AsyncSession):
 
 
 @router.callback_query(F.data.startswith("l2_do_revoke_"), IsReviewerL2())
-async def l2_do_revoke(callback: CallbackQuery, session: AsyncSession):
+async def l2_do_revoke(callback: CallbackQuery, state: FSMContext, session: AsyncSession):
+    data = await state.get_data()
+    lang = data.get("language", "uz")
     """Отозвать ранее одобренную заявку → обратно в approved_l1."""
     parts = callback.data.replace("l2_do_revoke_", "").split("_")
     req_id = int(parts[0])
@@ -396,7 +416,7 @@ async def l2_do_revoke(callback: CallbackQuery, session: AsyncSession):
 
     req = await session.get(Request, req_id)
     if not req:
-        await callback.answer("Заявка не найдена", show_alert=True)
+        await callback.answer(_("alert_already_processed", lang), show_alert=True)
         return
 
     req.status = RequestStatus.approved_l1
@@ -405,6 +425,6 @@ async def l2_do_revoke(callback: CallbackQuery, session: AsyncSession):
     req.closed_at = None
     await session.commit()
 
-    await callback.answer(f"↩ Заявка #{req.request_number} отозвана", show_alert=True)
+    await callback.answer(_("alert_revoked", lang, req_id=req.request_number), show_alert=True)
     callback.data = "l2_back_main"
-    await show_l2_queue(callback, session)
+    await show_l2_queue(callback, state, session)

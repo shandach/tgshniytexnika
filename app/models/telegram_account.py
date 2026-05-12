@@ -30,11 +30,15 @@ class TelegramAccount(Base):
     )
     language = sa.Column(sa.String(10), server_default="uz", nullable=False)
 
+    # Имя и юзернейм из Telegram — сохраняются автоматически при /start
+    username = sa.Column(sa.String(255), nullable=True)   # @username (без @)
+    full_name = sa.Column(sa.String(512), nullable=True)  # "Имя Фамилия"
+
     # Региональная привязка L1-проверяющего (mintaqaviy).
     # Должна совпадать с BhmBranch.region_name.
     # Для L2 и сотрудников — NULL (L2 видят все области).
     assigned_region = sa.Column(sa.String(255), nullable=True)
 
     def __repr__(self) -> str:
-        return f"<TelegramAccount tg_id={self.telegram_user_id} role={self.role} region={self.assigned_region}>"
+        return f"<TelegramAccount tg_id={self.telegram_user_id} username=@{self.username} role={self.role}>"
 
