@@ -58,14 +58,16 @@ class PostgresFSMStorage(BaseStorage):
             return row[0] if row else None
 
     async def set_data(self, key: StorageKey, data: Dict[str, Any]) -> None:
-        params = {**self._key(key), "data": json.dumps(data, default=str)}
+        # NOTE: Use CAST(:data AS jsonb) — asyncpg does not support :name::type syntax
+        data_json = json.dumps(data, default=str)
+        params = {**self._key(key), "data": data_json}
         async with self._engine.begin() as conn:
             await conn.execute(
                 text("""
                     INSERT INTO fsm_state (bot_id, chat_id, user_id, destiny, data)
-                    VALUES (:bot_id, :chat_id, :user_id, :destiny, :data::jsonb)
+                    VALUES (:bot_id, :chat_id, :user_id, :destiny, CAST(:data AS jsonb))
                     ON CONFLICT (bot_id, chat_id, user_id, destiny)
-                    DO UPDATE SET data = EXCLUDED.data, updated_at = NOW()
+                    DO UPDATE SET data = CAST(EXCLUDED.data AS jsonb), updated_at = NOW()
                 """),
                 params,
             )
