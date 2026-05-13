@@ -82,6 +82,11 @@ async def process_bhm_code(message: Message, state: FSMContext, session: AsyncSe
     # Сохраняем филиал в стейт + сохраняем язык в стейт еще раз для надежности
     await state.update_data(branch_id=branch.id, bhm_code=bhm_code, branch_name=branch.branch_name, language=lang)
     
+    # Сохраняем в БД для вечного хранения
+    account = await get_or_create_tg_account(session, message.from_user.id)
+    account.selected_branch_id = branch.id
+    await session.commit()
+    
     # Выводим главное меню
     msg = _("msg_bhm_found", lang, branch=branch.branch_name, region=branch.region_name, city=branch.city_name)
     
@@ -128,3 +133,28 @@ async def process_inline_language(callback: CallbackQuery, state: FSMContext, se
             await callback.message.answer(text, reply_markup=get_main_menu_kb(lang=lang))
             
     await callback.answer()
+
+@router.message()
+async def global_fallback(message: Message, state: FSMContext, session: AsyncSession):
+    """Ловит любые сообщения, которые не попали в другие хендлеры."""
+    account = await get_or_create_tg_account(session, message.from_user.id)
+    lang = account.language or "uz"
+    
+    # Если это команда, которую мы не знаем - просто игнорим или даем подсказку
+    if message.text and message.text.startswith("/"):
+        return
+
+    # Восстанавливаем меню в зависимости от роли
+    if account.role == TgRole.reviewer_l1:
+        await message.answer("🔄", reply_markup=get_reviewer_l1_menu_kb(lang=lang))
+    elif account.role == TgRole.reviewer_l2:
+        await message.answer("🔄", reply_markup=get_reviewer_l2_menu_kb(lang=lang))
+    elif account.selected_branch_id:
+        branch = await session.get(BhmBranch, account.selected_branch_id)
+        if branch:
+            msg = _("msg_bhm_found", lang, branch=branch.branch_name, region=branch.region_name, city=branch.city_name)
+            await message.answer(msg, reply_markup=get_main_menu_kb(lang), parse_mode="Markdown")
+            return
+
+    # Если совсем ничего не понятно
+    await cmd_start(message, state, session)

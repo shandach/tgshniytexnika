@@ -39,6 +39,10 @@ class TelegramAccount(Base):
     # Для L2 и сотрудников — NULL (L2 видят все области).
     assigned_region = sa.Column(sa.String(255), nullable=True)
 
+    # Выбранный филиал (для сотрудников)
+    selected_branch_id = sa.Column(sa.Integer, sa.ForeignKey("bhm_branches.id"), nullable=True)
+
+
     def __repr__(self) -> str:
         return f"<TelegramAccount tg_id={self.telegram_user_id} username=@{self.username} role={self.role}>"
 

@@ -13,6 +13,7 @@ from app.config import settings
 from app.database import engine
 from app.bot.handlers import setup_routers
 from app.bot.middlewares.db_session import DbSessionMiddleware
+from app.bot.middlewares.state_restore import StateRestoreMiddleware
 
 # Подключение API роутеров
 from app.api.routers import auth, requests, dashboard, inventory
@@ -32,6 +33,7 @@ def get_bot_and_dp():
     
     # Регистрируем как outer_middleware, чтобы сессия была доступна в фильтрах (RoleFilter)
     dp.update.outer_middleware(DbSessionMiddleware())
+    dp.update.outer_middleware(StateRestoreMiddleware())
     
     dp.include_router(setup_routers())
     return bot, dp

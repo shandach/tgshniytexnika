@@ -2,15 +2,8 @@ from typing import Any, Awaitable, Callable, Dict
 
 from aiogram import BaseMiddleware
 from aiogram.types import TelegramObject
-from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-from app.database import engine
-
-# Создаем фабрику сессий на основе глобального engine
-async_session = async_sessionmaker(
-    bind=engine,
-    expire_on_commit=False,
-)
+from app.database import async_session
 
 class DbSessionMiddleware(BaseMiddleware):
     def __init__(self):
