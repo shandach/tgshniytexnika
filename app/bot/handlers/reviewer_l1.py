@@ -351,7 +351,7 @@ async def navigate_card(callback: CallbackQuery, state: FSMContext, session: Asy
         await _safe_edit(callback, _("l1_all_done", lang), None)
         return
     sorted_reqs = _sorted_by_priority(requests)
-    await _show_compact_card(callback, sorted_reqs, min(idx, len(sorted_reqs) - 1), session, back_cb)
+    await _show_compact_card(callback, sorted_reqs, min(idx, len(sorted_reqs) - 1), session, back_cb, lang=lang)
 
 
 # ── Навигация по карточкам (внутри филиала) ──────────────────────────────
