@@ -85,7 +85,7 @@ async def _get_new_requests(session: AsyncSession, region: Optional[str] = None)
     if not region:
         return []
 
-    stmt = select(Request).where(Request.status == RequestStatus.new)
+    stmt = select(Request).where(Request.status.in_([RequestStatus.new, RequestStatus.in_progress]))
     stmt = stmt.join(BhmBranch, Request.branch_id == BhmBranch.id).where(
         BhmBranch.region_name == region
     )
@@ -96,7 +96,7 @@ async def _get_new_requests(session: AsyncSession, region: Optional[str] = None)
 async def _get_new_by_branch(session: AsyncSession, bhm_code: str):
     stmt = (
         select(Request)
-        .where(and_(Request.status == RequestStatus.new, Request.bhm_code_snapshot == bhm_code))
+        .where(and_(Request.status.in_([RequestStatus.new, RequestStatus.in_progress]), Request.bhm_code_snapshot == bhm_code))
         .order_by(Request.created_at.asc())
     )
     return (await session.scalars(stmt)).all()
@@ -240,7 +240,7 @@ async def show_branches(event, state: FSMContext, session: AsyncSession):
         select(Request.bhm_code_snapshot, Request.branch_name_snapshot, func.count(Request.id))
         .join(BhmBranch, Request.branch_id == BhmBranch.id)
         .where(and_(
-            Request.status == RequestStatus.new,
+            Request.status.in_([RequestStatus.new, RequestStatus.in_progress]),
             BhmBranch.region_name == region
         ))
         .group_by(Request.bhm_code_snapshot, Request.branch_name_snapshot)
