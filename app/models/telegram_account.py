@@ -35,8 +35,10 @@ class TelegramAccount(Base):
     full_name = sa.Column(sa.String(512), nullable=True)  # "Имя Фамилия"
 
     # Региональная привязка L1-проверяющего (mintaqaviy).
-    # Должна совпадать с BhmBranch.region_name.
-    # Для L2 и сотрудников — NULL (L2 видят все области).
+    # Используется ТОЛЬКО для reviewer_l1.
+    # Значение должно СТРОГО совпадать с BhmBranch.region_name (на узбекском).
+    # Если NULL — L1-проверяющий не увидит ни одной заявки.
+    # Для L2 и сотрудников — должно оставаться NULL.
     assigned_region = sa.Column(sa.String(255), nullable=True)
 
     # Выбранный филиал (для сотрудников)

@@ -66,18 +66,26 @@ async def _get_reviewer_region(session: AsyncSession, tg_id: int, state: FSMCont
         TelegramAccount.telegram_user_id == tg_id
     )
     region = await session.scalar(stmt)
+    if region:
+        region = region.strip()
     if state:
         await state.update_data(assigned_region=region)
     return region
 
 
 async def _get_new_requests(session: AsyncSession, region: Optional[str] = None):
-    """Новые заявки. Если region задан — только из филиалов этой области."""
+    """
+    Новые заявки. 
+    Если region задан — только из филиалов этой области.
+    Если region НЕ задан — возвращаем ПУСТОЙ список (L1 должен быть привязан).
+    """
+    if not region:
+        return []
+
     stmt = select(Request).where(Request.status == RequestStatus.new)
-    if region:
-        stmt = stmt.join(BhmBranch, Request.branch_id == BhmBranch.id).where(
-            BhmBranch.region_name == region
-        )
+    stmt = stmt.join(BhmBranch, Request.branch_id == BhmBranch.id).where(
+        BhmBranch.region_name == region
+    )
     stmt = stmt.order_by(Request.created_at.asc())
     return (await session.scalars(stmt)).all()
 
@@ -124,6 +132,15 @@ async def show_queue(message: Message, state: FSMContext, session: AsyncSession)
     region = await _get_reviewer_region(session, message.from_user.id, state)
     requests = await _get_new_requests(session, region)
     total = len(requests)
+
+    if not region:
+        await message.answer(
+            "⚠️ *Вам не назначен регион для проверки.*\n"
+            "Пожалуйста, обратитесь к администратору для привязки к области (assigned_region).",
+            parse_mode="Markdown",
+            reply_markup=get_reviewer_l1_menu_kb("default", lang),
+        )
+        return
 
     if total == 0:
         await message.answer(
@@ -208,16 +225,22 @@ async def show_branches(event, state: FSMContext, session: AsyncSession):
     tg_id = event.from_user.id
     region = await _get_reviewer_region(session, tg_id, state)
 
+    if not region:
+        msg = "⚠️ *Вам не назначен регион для проверки.*\nПожалуйста, обратитесь к администратору."
+        if isinstance(event, CallbackQuery):
+            await _safe_edit(event, msg, None)
+        else:
+            await event.answer(msg, parse_mode="Markdown", reply_markup=get_reviewer_l1_menu_kb("default", lang))
+        return
+
     stmt = (
         select(Request.bhm_code_snapshot, Request.branch_name_snapshot, func.count(Request.id))
-        .where(Request.status == RequestStatus.new)
-    )
-    if region:
-        stmt = stmt.join(BhmBranch, Request.branch_id == BhmBranch.id).where(
+        .join(BhmBranch, Request.branch_id == BhmBranch.id)
+        .where(and_(
+            Request.status == RequestStatus.new,
             BhmBranch.region_name == region
-        )
-    stmt = (
-        stmt.group_by(Request.bhm_code_snapshot, Request.branch_name_snapshot)
+        ))
+        .group_by(Request.bhm_code_snapshot, Request.branch_name_snapshot)
         .order_by(func.count(Request.id).desc())
     )
     result = await session.execute(stmt)

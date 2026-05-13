@@ -115,12 +115,12 @@ class Request(Base):
     closed_at = sa.Column(sa.DateTime(timezone=True), nullable=True)
 
     # ── Relationships ────────────────────────────────────────────────
-    telegram_account = sa.orm.relationship("TelegramAccount", lazy="selectin")
-    employee = sa.orm.relationship("Employee", lazy="selectin")
-    branch = sa.orm.relationship("BhmBranch", lazy="selectin")
-    inventory = sa.orm.relationship("Inventory", lazy="selectin")
+    telegram_account = sa.orm.relationship("TelegramAccount")
+    employee = sa.orm.relationship("Employee")
+    branch = sa.orm.relationship("BhmBranch")
+    inventory = sa.orm.relationship("Inventory")
     comments = sa.orm.relationship(
-        "RequestComment", back_populates="request", lazy="selectin", order_by="RequestComment.created_at"
+        "RequestComment", back_populates="request", order_by="RequestComment.created_at"
     )
 
     def __repr__(self) -> str:
