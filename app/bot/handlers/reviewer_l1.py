@@ -192,8 +192,10 @@ async def start_review(callback: CallbackQuery, state: FSMContext, session: Asyn
 
 @router.message(F.text.in_(get_text_variants("btn_l1_branches")), IsReviewerL1())
 @router.callback_query(F.data == "l1_branches", IsReviewerL1())
-async def show_branches(event, session: AsyncSession):
+async def show_branches(event, state: FSMContext, session: AsyncSession):
     """Список филиалов + динамическое Reply-меню (режим branch)."""
+    data = await state.get_data()
+    lang = data.get("language", "uz")
     tg_id = event.from_user.id
     region = await _get_reviewer_region(session, tg_id)
 
