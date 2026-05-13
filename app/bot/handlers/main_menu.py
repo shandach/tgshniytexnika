@@ -3,6 +3,7 @@ from aiogram import Router, F
 from aiogram.filters import StateFilter
 from aiogram.types import Message
 from aiogram.fsm.context import FSMContext
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.bot.keyboards.default import get_request_type_kb, get_main_menu_kb
 
