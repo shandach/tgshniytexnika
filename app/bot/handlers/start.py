@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.bot.keyboards.default import get_main_menu_kb, get_reviewer_l1_menu_kb, get_reviewer_l2_menu_kb
 from app.bot.states.forms import RegistrationForm
 from app.services.bot_crud import get_or_create_tg_account, get_branch_by_bhm
+from app.models.branch import BhmBranch
 
 logger = logging.getLogger(__name__)
 router = Router()
