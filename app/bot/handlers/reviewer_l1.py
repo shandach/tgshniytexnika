@@ -190,7 +190,7 @@ async def start_review(callback: CallbackQuery, state: FSMContext, session: Asyn
 # РЕЖИМ 2: ПО ФИЛИАЛАМ
 # ══════════════════════════════════════════════════════════════════════════
 
-@router.message(F.text == "📊 По филиалам", IsReviewerL1())
+@router.message(F.text.in_(get_text_variants("btn_l1_branches")), IsReviewerL1())
 @router.callback_query(F.data == "l1_branches", IsReviewerL1())
 async def show_branches(event, session: AsyncSession):
     """Список филиалов + динамическое Reply-меню (режим branch)."""
