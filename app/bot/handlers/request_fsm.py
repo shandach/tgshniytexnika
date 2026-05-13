@@ -20,6 +20,42 @@ router = Router()
 
 from app.bot.utils.texts import _, get_text_variants
 
+# ── Отмена / Назад — ОБЯЗАТЕЛЬНО ДО FSM-шагов ──────────────────────────
+# Эти хендлеры ловят кнопки "Отмена" и "Назад" внутри форм,
+# ПРЕЖДЕ чем FSM-шаги (waiting_for_inventory и т.д.) их перехватят.
+
+_CANCEL_TEXTS = get_text_variants("btn_cancel")
+_BACK_TEXTS = get_text_variants("btn_back")
+
+
+@router.message(F.text.in_(_CANCEL_TEXTS + _BACK_TEXTS), RequestForm.waiting_for_inventory_code)
+@router.message(F.text.in_(_CANCEL_TEXTS + _BACK_TEXTS), RequestForm.waiting_for_fio)
+@router.message(F.text.in_(_CANCEL_TEXTS + _BACK_TEXTS), RequestForm.waiting_for_position)
+@router.message(F.text.in_(_CANCEL_TEXTS + _BACK_TEXTS), RequestForm.waiting_for_reason)
+@router.message(F.text.in_(_CANCEL_TEXTS + _BACK_TEXTS), RequestForm.waiting_for_problem)
+async def cancel_request_form(message: Message, state: FSMContext):
+    """Отмена заявки из любого шага FSM."""
+    data = await state.get_data()
+    lang = data.get("language", "uz")
+    branch_id = data.get("branch_id")
+    bhm_code = data.get("bhm_code")
+    branch_name = data.get("branch_name")
+
+    await state.clear()
+
+    if branch_id:
+        await state.update_data(
+            branch_id=branch_id,
+            bhm_code=bhm_code,
+            branch_name=branch_name,
+            language=lang,
+        )
+
+    await message.answer(_("msg_cancel", lang), reply_markup=get_main_menu_kb(lang))
+
+
+# ── Начало заявки ────────────────────────────────────────────────────────
+
 @router.message(
     StateFilter(None),  # Только из главного меню (без активного FSM)
     F.text.in_(get_text_variants("btn_new") + get_text_variants("btn_replace") + get_text_variants("btn_repair"))
