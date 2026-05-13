@@ -3,10 +3,8 @@ from aiogram import Router, F
 from aiogram.filters import StateFilter
 from aiogram.types import Message
 from aiogram.fsm.context import FSMContext
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.bot.keyboards.default import get_request_type_kb, get_main_menu_kb
-from app.services.bot_crud import get_previous_employee_data
 
 logger = logging.getLogger(__name__)
 router = Router()
@@ -65,12 +63,9 @@ async def back_to_main_menu(message: Message, state: FSMContext):
 @router.message(F.text.in_(get_text_variants("btn_cancel")))
 async def cancel_fsm(message: Message, state: FSMContext):
     """Прерывание FSM (работает из любого состояния)."""
-    data = await state.get_data()
-    lang = data.get("language", "uz")
-
     current_state = await state.get_state()
     if current_state is None:
+        # Уже в главном меню — просто показываем меню
         return await back_to_main_menu(message, state)
-
-    await message.answer(_(  "msg_cancel", lang), reply_markup=get_main_menu_kb(lang))
+    # Есть активный FSM — очищаем и возвращаем в меню
     await back_to_main_menu(message, state)
