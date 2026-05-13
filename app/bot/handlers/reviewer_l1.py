@@ -59,9 +59,12 @@ async def _get_reviewer_region(session: AsyncSession, tg_id: int, state: FSMCont
     if state:
         data = await state.get_data()
         cached = data.get("assigned_region", "__UNSET__")
-        if cached != "__UNSET__":
+        # Если в кэше уже есть непустое значение — берем его. 
+        # Если там None или __UNSET__ — идем в БД (на случай, если регион только что назначили).
+        if cached and cached != "__UNSET__":
             return cached
-    # Первый вызов — идём в БД
+            
+    # Первый вызов или если было None — идём в БД
     stmt = select(TelegramAccount.assigned_region).where(
         TelegramAccount.telegram_user_id == tg_id
     )
@@ -136,7 +139,7 @@ async def show_queue(message: Message, state: FSMContext, session: AsyncSession)
     if not region:
         await message.answer(
             "⚠️ *Вам не назначен регион для проверки.*\n"
-            "Пожалуйста, обратитесь к администратору для привязки к области (assigned_region).",
+            "Пожалуйста, обратитесь к администратору для привязки к области.",
             parse_mode="Markdown",
             reply_markup=get_reviewer_l1_menu_kb("default", lang),
         )
