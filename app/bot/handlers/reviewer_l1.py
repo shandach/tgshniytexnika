@@ -54,12 +54,21 @@ def _is_priority(created_at: datetime) -> bool:
     return (now - ca).total_seconds() > PRIORITY_HOURS * 3600
 
 
-async def _get_reviewer_region(session: AsyncSession, tg_id: int) -> Optional[str]:
-    """Получить assigned_region L1-проверяющего по его Telegram ID."""
+async def _get_reviewer_region(session: AsyncSession, tg_id: int, state: FSMContext = None) -> Optional[str]:
+    """Получить assigned_region из FSM-кэша (RAM), при отсутствии — из БД."""
+    if state:
+        data = await state.get_data()
+        cached = data.get("assigned_region", "__UNSET__")
+        if cached != "__UNSET__":
+            return cached
+    # Первый вызов — идём в БД
     stmt = select(TelegramAccount.assigned_region).where(
         TelegramAccount.telegram_user_id == tg_id
     )
-    return await session.scalar(stmt)
+    region = await session.scalar(stmt)
+    if state:
+        await state.update_data(assigned_region=region)
+    return region
 
 
 async def _get_new_requests(session: AsyncSession, region: Optional[str] = None):
@@ -112,7 +121,7 @@ async def show_queue(message: Message, state: FSMContext, session: AsyncSession)
     """Сводка очереди + динамическое Reply-меню (режим queue)."""
     data = await state.get_data()
     lang = data.get("language", "uz")
-    region = await _get_reviewer_region(session, message.from_user.id)
+    region = await _get_reviewer_region(session, message.from_user.id, state)
     requests = await _get_new_requests(session, region)
     total = len(requests)
 
@@ -157,7 +166,7 @@ async def back_to_queue(callback: CallbackQuery, state: FSMContext, session: Asy
     """Вернуться к сводке очереди (inline)."""
     data = await state.get_data()
     lang = data.get("language", "uz")
-    region = await _get_reviewer_region(session, callback.from_user.id)
+    region = await _get_reviewer_region(session, callback.from_user.id, state)
     requests = await _get_new_requests(session, region)
 
     if not requests:
@@ -177,7 +186,7 @@ async def back_to_queue(callback: CallbackQuery, state: FSMContext, session: Asy
 async def start_review(callback: CallbackQuery, state: FSMContext, session: AsyncSession):
     data = await state.get_data()
     lang = data.get("language", "uz")
-    region = await _get_reviewer_region(session, callback.from_user.id)
+    region = await _get_reviewer_region(session, callback.from_user.id, state)
     requests = await _get_new_requests(session, region)
     if not requests:
         await _safe_edit(callback, "✅ Очередь пуста!", None)
@@ -197,7 +206,7 @@ async def show_branches(event, state: FSMContext, session: AsyncSession):
     data = await state.get_data()
     lang = data.get("language", "uz")
     tg_id = event.from_user.id
-    region = await _get_reviewer_region(session, tg_id)
+    region = await _get_reviewer_region(session, tg_id, state)
 
     stmt = (
         select(Request.bhm_code_snapshot, Request.branch_name_snapshot, func.count(Request.id))
@@ -347,7 +356,7 @@ async def navigate_card(callback: CallbackQuery, state: FSMContext, session: Asy
     idx = int(parts[0])
     back_cb = parts[1] if len(parts) > 1 else "l1_back_queue"
 
-    region = await _get_reviewer_region(session, callback.from_user.id)
+    region = await _get_reviewer_region(session, callback.from_user.id, state)
     requests = await _get_new_requests(session, region)
     if not requests:
         await _safe_edit(callback, _("l1_all_done", lang), None)
@@ -453,7 +462,7 @@ async def approve_request(callback: CallbackQuery, state: FSMContext, session: A
     await callback.answer(_("alert_approved", lang), show_alert=True)
 
     # Показать следующую (с учётом региона проверяющего)
-    region = await _get_reviewer_region(session, callback.from_user.id)
+    region = await _get_reviewer_region(session, callback.from_user.id, state)
     remaining = await _get_new_requests(session, region)
     if remaining:
         sorted_reqs = _sorted_by_priority(remaining)
@@ -508,7 +517,7 @@ async def reject_with_reason(callback: CallbackQuery, state: FSMContext, session
 
     await callback.answer(_("alert_rejected", lang), show_alert=True)
 
-    region = await _get_reviewer_region(session, callback.from_user.id)
+    region = await _get_reviewer_region(session, callback.from_user.id, state)
     remaining = await _get_new_requests(session, region)
     if remaining:
         sorted_reqs = _sorted_by_priority(remaining)
