@@ -1,5 +1,6 @@
 import logging
 from aiogram import Router, F
+from aiogram.filters import StateFilter
 from aiogram.types import Message
 from aiogram.fsm.context import FSMContext
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -19,7 +20,10 @@ router = Router()
 
 from app.bot.utils.texts import _, get_text_variants
 
-@router.message(F.text.in_(get_text_variants("btn_new") + get_text_variants("btn_replace") + get_text_variants("btn_repair")))
+@router.message(
+    StateFilter(None),  # Только из главного меню (без активного FSM)
+    F.text.in_(get_text_variants("btn_new") + get_text_variants("btn_replace") + get_text_variants("btn_repair"))
+)
 async def start_request_fsm(message: Message, state: FSMContext, session: AsyncSession):
     """Начало заполнения заявки."""
     data = await state.get_data()

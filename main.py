@@ -2,7 +2,7 @@ import asyncio
 import logging
 from contextlib import asynccontextmanager
 from aiogram import Bot, Dispatcher
-from aiogram.fsm.storage.memory import MemoryStorage
+from app.bot.storage import PostgresFSMStorage
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 
 def get_bot_and_dp():
     bot = Bot(token=settings.BOT_TOKEN)
-    dp = Dispatcher(storage=MemoryStorage())
+    dp = Dispatcher(storage=PostgresFSMStorage(engine))
     
     # Регистрируем как outer_middleware, чтобы сессия была доступна в фильтрах (RoleFilter)
     dp.update.outer_middleware(DbSessionMiddleware())
@@ -77,12 +77,12 @@ app = FastAPI(title="TgTexnika API", lifespan=lifespan)
 # CORS setup
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173",
-                   "http://localhost:8000", "http://127.0.0.1:8000"],
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 # Подключение API роутеров FastAPI
 app.include_router(auth.router)
