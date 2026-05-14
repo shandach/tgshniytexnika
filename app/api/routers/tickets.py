@@ -128,7 +128,7 @@ async def get_tickets(
             "inv": r.inventory_code_snapshot or "—",
             "emp": r.employee_fio_snapshot,
             "init": _initials(r.employee_fio_snapshot),
-            "year": r.inventory.issue_year if r.inventory and r.inventory.issue_year else (r.created_at.year if r.created_at else 0),
+            "year": "—" if r.request_type == "new_issue" else (r.inventory.issue_year if r.inventory and r.inventory.issue_year else "—"),
             "status": _ui_status(r.status, r.final_decision),
             "ds": _format_date_display(r.created_at) if r.created_at else "",
             "dv": _format_date_filter(r.created_at) if r.created_at else "",
