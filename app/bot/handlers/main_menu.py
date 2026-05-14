@@ -20,7 +20,7 @@ from app.bot.utils.texts import _, get_text_variants
 async def select_equipment_type(message: Message, state: FSMContext, session: AsyncSession):
     """Выбор типа техники из главного меню."""
     data = await state.get_data()
-    lang = data.get("language", "uz")
+    lang = data.get("language", "ru")
 
     if "branch_id" not in data:
         await message.answer(_(  "msg_not_auth", lang))
@@ -40,7 +40,7 @@ async def select_equipment_type(message: Message, state: FSMContext, session: As
 async def back_to_main_menu(message: Message, state: FSMContext):
     """Возврат в главное меню (работает из любого состояния)."""
     data = await state.get_data()
-    lang = data.get("language", "uz")
+    lang = data.get("language", "ru")
     branch_id = data.get("branch_id")
     bhm_code = data.get("bhm_code")
     branch_name = data.get("branch_name")

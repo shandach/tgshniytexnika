@@ -36,7 +36,7 @@ _BACK_TEXTS = get_text_variants("btn_back")
 async def cancel_request_form(message: Message, state: FSMContext):
     """Отмена заявки из любого шага FSM."""
     data = await state.get_data()
-    lang = data.get("language", "uz")
+    lang = data.get("language", "ru")
     branch_id = data.get("branch_id")
     bhm_code = data.get("bhm_code")
     branch_name = data.get("branch_name")
@@ -63,7 +63,7 @@ async def cancel_request_form(message: Message, state: FSMContext):
 async def start_request_fsm(message: Message, state: FSMContext, session: AsyncSession):
     """Начало заполнения заявки."""
     data = await state.get_data()
-    lang = data.get("language", "uz")
+    lang = data.get("language", "ru")
     
     if message.text in get_text_variants("btn_new"):
         request_type = RequestType.new_issue
@@ -90,7 +90,7 @@ async def process_inventory_code(message: Message, state: FSMContext, session: A
     """Проверка инвентарного номера."""
     inventory_code = message.text.strip()
     data = await state.get_data()
-    lang = data.get("language", "uz")
+    lang = data.get("language", "ru")
     req_type = data["request_type"]
     branch_id = data.get("branch_id")
     equipment_type = data.get("equipment_type")  # Из главного меню
@@ -155,7 +155,7 @@ async def proceed_to_fio(message: Message, state: FSMContext, session: AsyncSess
 async def process_fio(message: Message, state: FSMContext, session: AsyncSession):
     text = message.text.strip()
     data = await state.get_data()
-    lang = data.get("language", "uz")
+    lang = data.get("language", "ru")
     
     # Обработка автоподстановки "Использовать: ФИО (Должность)"
     if any(text.startswith(pref) for pref in ["Использовать: ", "Foydalanish: "]):
@@ -178,7 +178,7 @@ async def process_fio(message: Message, state: FSMContext, session: AsyncSession
 @router.message(RequestForm.waiting_for_position)
 async def process_position(message: Message, state: FSMContext):
     data = await state.get_data()
-    lang = data.get("language", "uz")
+    lang = data.get("language", "ru")
     await state.update_data(position=message.text.strip())
     await proceed_to_reason_or_problem(message, state, lang)
 
@@ -201,7 +201,7 @@ async def proceed_to_reason_or_problem(message: Message, state: FSMContext, lang
 @router.message(RequestForm.waiting_for_reason)
 async def process_reason(message: Message, state: FSMContext, session: AsyncSession):
     data = await state.get_data()
-    lang = data.get("language", "uz")
+    lang = data.get("language", "ru")
     await state.update_data(reason=message.text)
     await finalize_request(message, state, session)
 
@@ -214,7 +214,7 @@ async def process_problem(message: Message, state: FSMContext, session: AsyncSes
 
 async def finalize_request(message: Message, state: FSMContext, session: AsyncSession):
     data = await state.get_data()
-    lang = data.get("language", "uz")
+    lang = data.get("language", "ru")
     
     # Извлекаем объекты
     from app.services.bot_crud import get_branch_by_bhm, get_or_create_tg_account

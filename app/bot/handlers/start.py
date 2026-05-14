@@ -66,7 +66,7 @@ async def cmd_start(message: Message, state: FSMContext, session: AsyncSession):
 async def process_bhm_code(message: Message, state: FSMContext, session: AsyncSession):
     """Обработка ввода BXM кода и приветствие с меню."""
     data = await state.get_data()
-    lang = data.get("language", "uz")
+    lang = data.get("language", "ru")
     
     bhm_code = message.text.strip()
     

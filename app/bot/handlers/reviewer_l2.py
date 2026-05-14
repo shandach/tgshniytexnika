@@ -57,8 +57,10 @@ async def _get_approved_l1_by_branch(session: AsyncSession, bhm_code: str):
 
 @router.message(F.text.in_(get_text_variants("btn_l2_pending")), IsReviewerL2())
 @router.callback_query(F.data == "l2_back_main", IsReviewerL2())
-async def show_l2_queue(event, session: AsyncSession):
+async def show_l2_queue(event, state: FSMContext, session: AsyncSession):
     """Сводка ожидающих подтверждения L2 — группировка по филиалам."""
+    data = await state.get_data()
+    lang = data.get("language", "ru")
     stmt = (
         select(
             Request.bhm_code_snapshot,
@@ -73,7 +75,7 @@ async def show_l2_queue(event, session: AsyncSession):
     rows = result.all()
 
     if not rows:
-        text = "✅ Нет заявок для подтверждения."
+        text = "✅ Нет заявок для подтверждения." if lang == "ru" else "✅ Tasdiqlash uchun arizalar yo'q."
         if isinstance(event, CallbackQuery):
             await event.message.edit_text(text)
             await event.answer()
@@ -82,11 +84,13 @@ async def show_l2_queue(event, session: AsyncSession):
         return
 
     total = sum(r[2] for r in rows)
-    lines = [f"📋 *Ожидающие подтверждения L2: {total}*\n"]
+    header = f"📋 *Ожидающие подтверждения L2: {total}*\n" if lang == "ru" else f"📋 *L2 tasdiqlashini kutayotganlar: {total}*\n"
+    lines = [header]
 
     buttons = []
     for bhm_code, name, count in rows:
-        lines.append(f"• {name} ({bhm_code}) — {count} заявок")
+        req_text = "заявок" if lang == "ru" else "ta ariza"
+        lines.append(f"• {name} ({bhm_code}) — {count} {req_text}")
         buttons.append([InlineKeyboardButton(
             text=f"{name} ({count})",
             callback_data=f"l2_branch_{bhm_code}",
@@ -107,7 +111,7 @@ async def show_l2_queue(event, session: AsyncSession):
 @router.callback_query(F.data.startswith("l2_branch_"), IsReviewerL2())
 async def show_l2_branch(callback: CallbackQuery, state: FSMContext, session: AsyncSession):
     data = await state.get_data()
-    lang = data.get("language", "uz")
+    lang = data.get("language", "ru")
     """Показать заявки филиала для L2."""
     bhm_code = callback.data.replace("l2_branch_", "")
     requests = await _get_approved_l1_by_branch(session, bhm_code)
@@ -118,23 +122,29 @@ async def show_l2_branch(callback: CallbackQuery, state: FSMContext, session: As
         return
 
     branch_name = requests[0].branch_name_snapshot
+    branch_lbl = "Филиал" if lang == "ru" else "Filial"
+    approved_lbl = "L1 одобрено" if lang == "ru" else "L1 tasdiqlagan"
+    reqs_lbl = "заявок" if lang == "ru" else "ta ariza"
+    
     lines = [
-        f"📍 *Филиал: {branch_name} ({bhm_code})*",
-        f"L1 одобрено: {len(requests)} заявок\n",
+        f"📍 *{branch_lbl}: {branch_name} ({bhm_code})*",
+        f"{approved_lbl}: {len(requests)} {reqs_lbl}\n",
     ]
 
     for r in requests:
-        equip = EQUIP_LABELS.get(r.equipment_type, "")
+        equip = _("lbl_" + r.equipment_type, lang) if r.equipment_type in ["computer", "printer"] else r.equipment_type
+        r_type = _("lbl_" + r.request_type, lang) if r.request_type in ["replacement", "new_issue", "repair"] else r.request_type
         lines.append(
-            f"• #{r.request_number} — {TYPE_LABELS.get(r.request_type, '')} "
+            f"• #{r.request_number} — {r_type} "
             f"{equip} | {r.employee_fio_snapshot}"
         )
 
-    lines.append("\n📞 _Не забудьте позвонить руководителю филиала_")
+    call_lbl = "\n📞 _Не забудьте позвонить руководителю филиала_" if lang == "ru" else "\n📞 _Filial rahbariga qo'ng'iroq qilishni unutmang_"
+    lines.append(call_lbl)
 
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [
-            InlineKeyboardButton(text=f"✅ Одобрить все {len(requests)}", callback_data=f"l2_approve_all_{bhm_code}"),
+            InlineKeyboardButton(text=f"✅ Одобрить все {len(requests)}" if lang == "ru" else f"✅ Barchasini tasdiqlash ({len(requests)})", callback_data=f"l2_approve_all_{bhm_code}"),
             InlineKeyboardButton(text=_("btn_l1_detail", lang), callback_data=f"l2_detail_branch_{bhm_code}_0"),
         ],
         [InlineKeyboardButton(text=_("btn_l2_reject_all", lang), callback_data=f"l2_reject_all_{bhm_code}")],
@@ -150,7 +160,7 @@ async def show_l2_branch(callback: CallbackQuery, state: FSMContext, session: As
 @router.callback_query(F.data.startswith("l2_detail_branch_"), IsReviewerL2())
 async def show_l2_detail(callback: CallbackQuery, state: FSMContext, session: AsyncSession):
     data = await state.get_data()
-    lang = data.get("language", "uz")
+    lang = data.get("language", "ru")
     """Карточка заявки для L2."""
     parts = callback.data.replace("l2_detail_branch_", "").rsplit("_", 1)
     bhm_code = parts[0]
@@ -163,17 +173,22 @@ async def show_l2_detail(callback: CallbackQuery, state: FSMContext, session: As
         return
 
     req = requests[idx]
-    equip = EQUIP_LABELS.get(req.equipment_type, req.equipment_type)
+    equip = _("lbl_" + req.equipment_type, lang) if req.equipment_type in ["computer", "printer"] else req.equipment_type
     inv = req.inventory_code_snapshot or "—"
     l1_comment = req.l1_comment or "—"
+    r_type = _("lbl_" + req.request_type, lang) if req.request_type in ["replacement", "new_issue", "repair"] else req.request_type
 
     text = (
-        f"{idx + 1} из {len(requests)} | *#{req.request_number}* — {bhm_code}\n"
+        f"{idx + 1} из {len(requests)} | *#{req.request_number}* — {bhm_code}\n" if lang == "ru" else f"{len(requests)} tadan {idx + 1} | *#{req.request_number}* — {bhm_code}\n"
+    ) + (
         f"━━━━━━━━━━━━━━━━━━\n"
-        f"Тип: {TYPE_LABELS.get(req.request_type, req.request_type)}\n"
-        f"Сотрудник: {req.employee_fio_snapshot} / {req.employee_position_snapshot or '—'}\n"
-        f"Устройство: {equip} / {inv}\n"
-        f"\nL1 комментарий: _{l1_comment}_"
+        f"Тип: {r_type}\n" if lang == "ru" else f"━━━━━━━━━━━━━━━━━━\nTuri: {r_type}\n"
+    ) + (
+        f"Сотрудник: {req.employee_fio_snapshot} / {req.employee_position_snapshot or '—'}\n" if lang == "ru" else f"Xodim: {req.employee_fio_snapshot} / {req.employee_position_snapshot or '—'}\n"
+    ) + (
+        f"Устройство: {equip} / {inv}\n" if lang == "ru" else f"Uskuna: {equip} / {inv}\n"
+    ) + (
+        f"\nL1 комментарий: _{l1_comment}_" if lang == "ru" else f"\nL1 izohi: _{l1_comment}_"
     )
 
     buttons = [
@@ -204,7 +219,7 @@ async def show_l2_detail(callback: CallbackQuery, state: FSMContext, session: As
 @router.callback_query(F.data.startswith("l2_approve_"), IsReviewerL2())
 async def l2_approve_one(callback: CallbackQuery, state: FSMContext, session: AsyncSession):
     data = await state.get_data()
-    lang = data.get("language", "uz")
+    lang = data.get("language", "ru")
     """L2 подтверждает заявку → closed + approved."""
     parts = callback.data.replace("l2_approve_", "").split("_")
     req_id = int(parts[0])
@@ -235,7 +250,7 @@ async def l2_approve_one(callback: CallbackQuery, state: FSMContext, session: As
         await show_l2_branch(callback, state, session)
     else:
         await callback.message.edit_text(
-            f"✅ Все заявки по {bhm_code} обработаны!",
+            f"✅ Все заявки по {bhm_code} обработаны!" if lang == "ru" else f"✅ {bhm_code} bo'yicha barcha arizalar ko'rib chiqildi!",
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[
                 [InlineKeyboardButton(text=_("btn_back_list", lang), callback_data="l2_back_main")]
             ]),
@@ -245,7 +260,7 @@ async def l2_approve_one(callback: CallbackQuery, state: FSMContext, session: As
 @router.callback_query(F.data.startswith("l2_reject_"), IsReviewerL2())
 async def l2_reject_one(callback: CallbackQuery, state: FSMContext, session: AsyncSession):
     data = await state.get_data()
-    lang = data.get("language", "uz")
+    lang = data.get("language", "ru")
     """L2 отклоняет заявку — причины."""
     parts = callback.data.replace("l2_reject_", "").split("_")
     req_id = parts[0]
@@ -264,7 +279,7 @@ async def l2_reject_one(callback: CallbackQuery, state: FSMContext, session: Asy
 @router.callback_query(F.data.startswith("l2_rj_"), IsReviewerL2())
 async def l2_reject_with_reason(callback: CallbackQuery, state: FSMContext, session: AsyncSession):
     data = await state.get_data()
-    lang = data.get("language", "uz")
+    lang = data.get("language", "ru")
     """Применить отказ L2."""
     parts = callback.data.replace("l2_rj_", "").split("_")
     req_id = int(parts[0])
@@ -272,9 +287,9 @@ async def l2_reject_with_reason(callback: CallbackQuery, state: FSMContext, sess
     reason_key = "_".join(parts[2:])
 
     reasons = {
-        "no_confirm": "Руководитель филиала не подтвердил",
-        "in_progress": "Уже в процессе замены",
-        "no_priority": "Не в списке приоритетов",
+        "no_confirm": "Руководитель филиала не подтвердил" if lang == "ru" else "Filial rahbari tasdiqlamadi",
+        "in_progress": "Уже в процессе замены" if lang == "ru" else "Allaqachon almashtirish jarayonida",
+        "no_priority": "Не в списке приоритетов" if lang == "ru" else "Ustuvor ro'yxatda yo'q",
     }
 
     req = await session.get(Request, req_id)
@@ -301,7 +316,7 @@ async def l2_reject_with_reason(callback: CallbackQuery, state: FSMContext, sess
 @router.callback_query(F.data.startswith("l2_approve_all_"), IsReviewerL2())
 async def l2_approve_all(callback: CallbackQuery, state: FSMContext, session: AsyncSession):
     data = await state.get_data()
-    lang = data.get("language", "uz")
+    lang = data.get("language", "ru")
     """Одобрить все заявки филиала."""
     bhm_code = callback.data.replace("l2_approve_all_", "")
     requests = await _get_approved_l1_by_branch(session, bhm_code)
@@ -332,6 +347,11 @@ async def l2_approve_all(callback: CallbackQuery, state: FSMContext, session: As
         f"📋 Сводный отчёт для отдела выдачи\n\n"
         f"• Нужно техники: {tech_lines}\n"
         f"• Филиал: {branch_name} ({bhm_code})"
+    ) if lang == "ru" else (
+        f"✅ *{bhm_code} — {count} ta tasdiqlandi*\n"
+        f"📋 Ajratish bo'limi uchun umumiy hisobot\n\n"
+        f"• Kerakli texnika: {tech_lines}\n"
+        f"• Filial: {branch_name} ({bhm_code})"
     )
 
     kb = InlineKeyboardMarkup(inline_keyboard=[
@@ -346,7 +366,7 @@ async def l2_approve_all(callback: CallbackQuery, state: FSMContext, session: As
 @router.callback_query(F.data.startswith("l2_reject_all_"), IsReviewerL2())
 async def l2_reject_all(callback: CallbackQuery, state: FSMContext, session: AsyncSession):
     data = await state.get_data()
-    lang = data.get("language", "uz")
+    lang = data.get("language", "ru")
     """Отклонить все заявки филиала."""
     bhm_code = callback.data.replace("l2_reject_all_", "")
     requests = await _get_approved_l1_by_branch(session, bhm_code)
@@ -354,13 +374,14 @@ async def l2_reject_all(callback: CallbackQuery, state: FSMContext, session: Asy
     for r in requests:
         r.status = RequestStatus.closed
         r.final_decision = FinalDecision.rejected
-        r.reject_reason = "Массовый отказ L2"
+        r.reject_reason = "Массовый отказ L2" if lang == "ru" else "L2 tomonidan ommaviy rad etish"
         r.l2_reviewer_tg_id = callback.from_user.id
         r.closed_at = datetime.now(timezone.utc)
         count += 1
     await session.commit()
 
-    await callback.message.edit_text(f"❌ Отклонено {count} заявок по {bhm_code}")
+    text = f"❌ Отклонено {count} заявок по {bhm_code}" if lang == "ru" else f"❌ {bhm_code} bo'yicha {count} ta ariza rad etildi"
+    await callback.message.edit_text(text)
     await callback.answer()
 
 
@@ -369,7 +390,7 @@ async def l2_reject_all(callback: CallbackQuery, state: FSMContext, session: Asy
 @router.callback_query(F.data.startswith("l2_revoke_"), IsReviewerL2())
 async def l2_revoke_list(callback: CallbackQuery, state: FSMContext, session: AsyncSession):
     data = await state.get_data()
-    lang = data.get("language", "uz")
+    lang = data.get("language", "ru")
     """Показать недавно одобренные для отзыва."""
     bhm_code = callback.data.replace("l2_revoke_", "")
 
@@ -408,7 +429,7 @@ async def l2_revoke_list(callback: CallbackQuery, state: FSMContext, session: As
 @router.callback_query(F.data.startswith("l2_do_revoke_"), IsReviewerL2())
 async def l2_do_revoke(callback: CallbackQuery, state: FSMContext, session: AsyncSession):
     data = await state.get_data()
-    lang = data.get("language", "uz")
+    lang = data.get("language", "ru")
     """Отозвать ранее одобренную заявку → обратно в approved_l1."""
     parts = callback.data.replace("l2_do_revoke_", "").split("_")
     req_id = int(parts[0])

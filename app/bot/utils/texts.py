@@ -112,7 +112,29 @@ TEXTS = {
     "alert_approved": {"ru": "✅ Одобрено!", "uz": "✅ Tasdiqlandi!"},
     "alert_rejected": {"ru": "❌ Отклонена", "uz": "❌ Rad etildi"},
     "alert_confirmed": {"ru": "✅ Подтверждено!", "uz": "✅ Tasdiqlandi!"},
-    "alert_revoked": {"ru": "↩ Заявка #{req_id} отозвана", "uz": "↩ Ariza #{req_id} bekor qilindi"}
+    "alert_revoked": {"ru": "↩ Заявка #{req_id} отозвана", "uz": "↩ Ariza #{req_id} bekor qilindi"},
+    
+    # Reviewer Queue/Branch UI
+    "l1_branches_header": {"ru": "🏢 *Режим: По филиалам*{region}\n📋 Всего {total} заявок в {branches_count} филиалах\n\nВыберите филиал:", "uz": "🏢 *Rejim: Filiallar bo'yicha*{region}\n📋 Jami {branches_count} filialda {total} ta ariza\n\nFilialni tanlang:"},
+    "l1_region_label": {"ru": "\n📍 Область: {region}", "uz": "\n📍 Viloyat: {region}"},
+    "l1_queue_header": {"ru": "📂 *Режим: Очередь заявок*\n", "uz": "📂 *Rejim: Arizalar navbati*\n"},
+    "l1_queue_region": {"ru": "📍 *Область: {region}*\n", "uz": "📍 *Viloyat: {region}*\n"},
+    "l1_queue_total": {"ru": "📋 *{total} новых заявок*", "uz": "📋 *{total} ta yangi ariza*"},
+    "l1_queue_priority": {"ru": "\n🔥 *Приоритетных (>{hours}ч):* {count}", "uz": "\n🔥 *Ustuvor (>{hours}s):* {count}"},
+    "l1_branch_mode": {"ru": "🏢 *Режим: {branch} ({code})*", "uz": "🏢 *Rejim: {branch} ({code})*"},
+    "l1_branch_reqs": {"ru": "📋 {count} заявок\n", "uz": "📋 {count} ta ariza\n"},
+    "l1_branch_more": {"ru": "\n_...и ещё {count} заявок_", "uz": "\n_...va yana {count} ta ariza_"},
+    "l1_card_req": {"ru": "{fire}*#{num}* | {type}\nУстройство: {equip} ({inv})\nФилиал: {branch} ({code})\nСотрудник: {fio} ({pos})", "uz": "{fire}*#{num}* | {type}\nUskuna: {equip} ({inv})\nFilial: {branch} ({code})\nXodim: {fio} ({pos})"},
+    "l1_card_reason": {"ru": "\n📝 Причина: _{reason}_", "uz": "\n📝 Sabab: _{reason}_"},
+    "l1_card_problem": {"ru": "\n🛠 Проблема: _{problem}_", "uz": "\n🛠 Muammo: _{problem}_"},
+    "l1_card_footer": {"ru": "\n\n⏳ В очереди: {age} | 📄 Из {total}", "uz": "\n\n⏳ Navbatda: {age} | 📄 {total} tadan"},
+    
+    # Labels
+    "lbl_replacement": {"ru": "Замена", "uz": "Almashtirish"},
+    "lbl_new_issue": {"ru": "Новая выдача", "uz": "Yangi ajratish"},
+    "lbl_repair": {"ru": "Поломка", "uz": "Buzilish"},
+    "lbl_computer": {"ru": "ПК", "uz": "ShK"},
+    "lbl_printer": {"ru": "Принтер", "uz": "Printer"}
 }
 
 def _(key: str, lang: str = "uz", **kwargs) -> str:

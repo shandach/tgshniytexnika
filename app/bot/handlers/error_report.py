@@ -20,7 +20,7 @@ from app.bot.utils.texts import _, get_text_variants
 async def start_error_report(message: Message, state: FSMContext):
     """Начало FSM для отправки отчета об ошибке."""
     data = await state.get_data()
-    lang = data.get("language", "uz")
+    lang = data.get("language", "ru")
     await message.answer(
         _("rep_start", lang),
         reply_markup=get_cancel_kb(lang)
@@ -32,7 +32,7 @@ async def start_error_report(message: Message, state: FSMContext):
 async def process_error_text(message: Message, state: FSMContext):
     """Отправка email с описанием ошибки."""
     data = await state.get_data()
-    lang = data.get("language", "uz")
+    lang = data.get("language", "ru")
     
     error_text = message.text
     user = message.from_user

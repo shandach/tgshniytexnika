@@ -77,7 +77,7 @@ async def _generate_my_requests_menu(session: AsyncSession, tg_user_id: int, lan
 async def check_status(message: Message, session: AsyncSession, state: FSMContext):
     """Показывает список заявок текущего Telegram-аккаунта (менюшка)."""
     data = await state.get_data()
-    lang = data.get("language", "uz")
+    lang = data.get("language", "ru")
     
     text, kb = await _generate_my_requests_menu(session, message.from_user.id, lang)
     if kb:
@@ -90,7 +90,7 @@ async def check_status(message: Message, session: AsyncSession, state: FSMContex
 async def back_to_my_reqs(callback: CallbackQuery, session: AsyncSession, state: FSMContext):
     """Возврат к списку своих заявок."""
     data = await state.get_data()
-    lang = data.get("language", "uz")
+    lang = data.get("language", "ru")
     text, kb = await _generate_my_requests_menu(session, callback.from_user.id, lang)
     await callback.message.edit_text(text, reply_markup=kb, parse_mode="Markdown")
 
@@ -99,7 +99,7 @@ async def back_to_my_reqs(callback: CallbackQuery, session: AsyncSession, state:
 async def my_req_detail(callback: CallbackQuery, session: AsyncSession, state: FSMContext):
     """Открывает детальную карточку заявки сотрудника."""
     data = await state.get_data()
-    lang = data.get("language", "uz")
+    lang = data.get("language", "ru")
     
     req_id = int(callback.data.split("_")[1])
     stmt = select(Request).where(Request.id == req_id)
@@ -168,7 +168,7 @@ async def my_req_detail(callback: CallbackQuery, session: AsyncSession, state: F
 async def repair_confirmed_yes(callback: CallbackQuery, session: AsyncSession, state: FSMContext):
     """Сотрудник подтвердил починку."""
     data = await state.get_data()
-    lang = data.get("language", "uz")
+    lang = data.get("language", "ru")
     req_id = int(callback.data.split("_")[2])
     stmt = select(Request).where(Request.id == req_id)
     req = await session.scalar(stmt)
@@ -194,7 +194,7 @@ async def repair_confirmed_yes(callback: CallbackQuery, session: AsyncSession, s
 async def repair_escalate_no(callback: CallbackQuery, session: AsyncSession, state: FSMContext):
     """Сотрудник нажал 'Нет', требуем коммент."""
     data = await state.get_data()
-    lang = data.get("language", "uz")
+    lang = data.get("language", "ru")
     req_id = int(callback.data.split("_")[2])
     
     await state.update_data(escalate_req_id=req_id)
@@ -228,7 +228,7 @@ async def process_escalation_comment(message: Message, state: FSMContext, sessio
     await state.clear()
     
     # Чтобы вернуть контекст, нам нужен lang
-    lang = data.get("language", "uz") 
+    lang = data.get("language", "ru") 
     await state.update_data(language=lang)
 
     msg = f"🚨 Спасибо! Информация по заявке #{req.request_number if req else ''} передана руководителям.\nС вами свяжутся в ближайшее время." if lang == "ru" else f"🚨 Rahmat! Ariza #{req.request_number if req else ''} bo'yicha ma'lumot rahbarlarga yetkazildi.\nTez orada siz bilan bog'lanishadi."
