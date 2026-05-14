@@ -57,13 +57,24 @@ async def notify_l1_new_request(bot: Bot, session: AsyncSession, request: Reques
         return
 
     equip = EQUIP_LABELS.get(request.equipment_type, request.equipment_type)
-    text = (
-        f"🔔 *Новая заявка #{request.request_number}*\n\n"
-        f"Филиал: {request.branch_name_snapshot} ({request.bhm_code_snapshot})\n"
-        f"Сотрудник: {request.employee_fio_snapshot}\n"
-        f"Тип: {TYPE_LABELS.get(request.request_type, request.request_type)}\n"
-        f"Устройство: {equip}"
-    )
+    
+    if request.request_type == "repair":
+        text = (
+            f"🛠 *Уведомление о поломке #{request.request_number}*\n\n"
+            f"Филиал: {request.branch_name_snapshot} ({request.bhm_code_snapshot})\n"
+            f"Сотрудник: {request.employee_fio_snapshot}\n"
+            f"Устройство: {equip}\n\n"
+            f"ℹ️ _Заявка уже в работе у специалистов. От вас действий не требуется._"
+        )
+    else:
+        text = (
+            f"🔔 *Новая заявка #{request.request_number}*\n\n"
+            f"Филиал: {request.branch_name_snapshot} ({request.bhm_code_snapshot})\n"
+            f"Сотрудник: {request.employee_fio_snapshot}\n"
+            f"Тип: {TYPE_LABELS.get(request.request_type, request.request_type)}\n"
+            f"Устройство: {equip}"
+        )
+
 
     for tg_id in l1_ids:
         try:
