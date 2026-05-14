@@ -15,6 +15,7 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import select, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.api.deps import get_current_user
 from app.database import get_session
@@ -85,7 +86,7 @@ async def get_tickets(
       &from=2025-04-01&to=2025-04-30 — по дате создания
       &q=поиск — по номеру заявки, ФИО или названию филиала
     """
-    stmt = select(Request).order_by(Request.created_at.desc())
+    stmt = select(Request).order_by(Request.created_at.desc()).options(selectinload(Request.inventory))
 
     filters = []
     if branch:
@@ -127,7 +128,7 @@ async def get_tickets(
             "inv": r.inventory_code_snapshot or "—",
             "emp": r.employee_fio_snapshot,
             "init": _initials(r.employee_fio_snapshot),
-            "year": r.created_at.year if r.created_at else 0,
+            "year": r.inventory.issue_year if r.inventory and r.inventory.issue_year else (r.created_at.year if r.created_at else 0),
             "status": _ui_status(r.status, r.final_decision),
             "ds": _format_date_display(r.created_at) if r.created_at else "",
             "dv": _format_date_filter(r.created_at) if r.created_at else "",
