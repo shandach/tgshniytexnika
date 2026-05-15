@@ -102,7 +102,7 @@ def get_position_kb(lang: str = "uz") -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
         keyboard=rows,
         resize_keyboard=True,
-        input_field_placeholder=_("ph_main", lang),
+        input_field_placeholder=_("ph_position", lang),
     )
 
 

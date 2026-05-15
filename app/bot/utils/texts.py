@@ -18,6 +18,7 @@ TEXTS = {
     # Плейсхолдеры
     "ph_main": {"ru": "Выберите нужное действие...", "uz": "Kerakli amalni tanlang..."},
     "ph_fio": {"ru": "Введите новые данные или используйте старые", "uz": "Yangi ma'lumotlarni kiriting yoki eskisidan foydalaning"},
+    "ph_position": {"ru": "Введите вашу должность...", "uz": "Lavozimni tanlang..."},
 
     # Сообщения меню
     "msg_select_equip": {"ru": "Вы выбрали оборудование: **{equip}**.\n\nКакую заявку вы хотите подать?", "uz": "Siz uskunani tanladingiz: **{equip}**.\n\nQanday ariza yubormoqchisiz?"},
