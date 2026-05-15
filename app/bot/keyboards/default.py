@@ -93,7 +93,6 @@ def get_position_kb(lang: str = "uz") -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
         keyboard=buttons,
         resize_keyboard=True,
-        input_field_placeholder="Выберите должность..." if lang == "ru" else "Lavozimni tanlang...",
     )
 
 
