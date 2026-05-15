@@ -50,7 +50,7 @@ def get_fio_reuse_kb(fio: str, position: str, lang: str = "uz") -> ReplyKeyboard
             [KeyboardButton(text=_( "btn_cancel", lang))]
         ],
         resize_keyboard=True,
-        input_field_placeholder=_("ph_main", lang),
+        input_field_placeholder=_("ph_fio", lang),
     )
     return kb
 
