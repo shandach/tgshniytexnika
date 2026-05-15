@@ -76,6 +76,27 @@ def get_reviewer_l1_menu_kb(mode: str = "default", lang: str = "uz") -> ReplyKey
     )
 
 
+POSITIONS = [
+    "1-toifali mutaxassis",
+    "Yetakchi mutaxassis",
+    "Bosh mutaxassis",
+    "Bo'lim boshlig'i",
+    "Menejer",
+    "Universal kassa kassiri",
+]
+
+
+def get_position_kb(lang: str = "uz") -> ReplyKeyboardMarkup:
+    """Клавиатура с выбором должности."""
+    buttons = [[KeyboardButton(text=pos)] for pos in POSITIONS]
+    buttons.append([KeyboardButton(text=_("btn_cancel", lang))])
+    return ReplyKeyboardMarkup(
+        keyboard=buttons,
+        resize_keyboard=True,
+        input_field_placeholder="Выберите должность..." if lang == "ru" else "Lavozimni tanlang...",
+    )
+
+
 def get_reviewer_l2_menu_kb(lang: str = "uz") -> ReplyKeyboardMarkup:
     """Главное меню для L2-проверяющего."""
     return ReplyKeyboardMarkup(

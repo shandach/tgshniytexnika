@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime, timezone
 
 from app.bot.states.forms import RequestForm
-from app.bot.keyboards.default import get_cancel_kb, get_main_menu_kb, get_fio_reuse_kb
+from app.bot.keyboards.default import get_cancel_kb, get_main_menu_kb, get_fio_reuse_kb, get_position_kb, POSITIONS
 from app.services.bot_crud import (
     check_inventory_lock, get_inventory_by_code, 
     create_request, get_previous_employee_data
@@ -171,7 +171,7 @@ async def process_fio(message: Message, state: FSMContext, session: AsyncSession
             pass  # Fallback to normal flow if parsing fails
 
     await state.update_data(fio=text)
-    await message.answer(_("msg_pos_req", lang), reply_markup=get_cancel_kb(lang))
+    await message.answer(_("msg_pos_req", lang), reply_markup=get_position_kb(lang))
     await state.set_state(RequestForm.waiting_for_position)
 
 
