@@ -87,11 +87,18 @@ POSITIONS = [
 
 
 def get_position_kb(lang: str = "uz") -> ReplyKeyboardMarkup:
-    """Клавиатура с выбором должности."""
-    buttons = [[KeyboardButton(text=pos)] for pos in POSITIONS]
-    buttons.append([KeyboardButton(text=_("btn_cancel", lang))])
+    """Клавиатура с выбором должности — 2 кнопки в ряд, отмена внизу по центру."""
+    # Разбиваем 6 должностей по 2 в строку → 3 строки
+    rows = []
+    for i in range(0, len(POSITIONS), 2):
+        pair = [KeyboardButton(text=POSITIONS[i])]
+        if i + 1 < len(POSITIONS):
+            pair.append(KeyboardButton(text=POSITIONS[i + 1]))
+        rows.append(pair)
+    # Кнопка отмены — одна по центру снизу
+    rows.append([KeyboardButton(text=_("btn_cancel", lang))])
     return ReplyKeyboardMarkup(
-        keyboard=buttons,
+        keyboard=rows,
         resize_keyboard=True,
     )
 
