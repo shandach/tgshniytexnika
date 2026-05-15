@@ -24,7 +24,8 @@ def get_request_type_kb(lang: str = "uz") -> ReplyKeyboardMarkup:
             [KeyboardButton(text=_( "btn_repair", lang))],
             [KeyboardButton(text=_( "btn_back", lang))]
         ],
-        resize_keyboard=True
+        resize_keyboard=True,
+        input_field_placeholder=_("ph_main", lang),
     )
     return kb
 
@@ -35,7 +36,8 @@ def get_cancel_kb(lang: str = "uz") -> ReplyKeyboardMarkup:
         keyboard=[
             [KeyboardButton(text=_( "btn_cancel", lang))]
         ],
-        resize_keyboard=True
+        resize_keyboard=True,
+        input_field_placeholder=_("ph_main", lang),
     )
     return kb
 
@@ -48,7 +50,7 @@ def get_fio_reuse_kb(fio: str, position: str, lang: str = "uz") -> ReplyKeyboard
             [KeyboardButton(text=_( "btn_cancel", lang))]
         ],
         resize_keyboard=True,
-        input_field_placeholder=_( "ph_fio", lang)
+        input_field_placeholder=_("ph_main", lang),
     )
     return kb
 
@@ -100,6 +102,7 @@ def get_position_kb(lang: str = "uz") -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
         keyboard=rows,
         resize_keyboard=True,
+        input_field_placeholder=_("ph_main", lang),
     )
 
 
