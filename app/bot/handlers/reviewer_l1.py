@@ -295,7 +295,13 @@ async def show_branch_requests(callback: CallbackQuery, state: FSMContext, sessi
         ))
         return
 
-    branch_name = requests[0].branch_name_snapshot
+    branch = await session.get(BhmBranch, requests[0].branch_id)
+    if branch:
+        parts = [branch.region_name, branch.city_name]
+        branch_name = ", ".join([p for p in parts if p])
+    else:
+        branch_name = requests[0].branch_name_snapshot
+
     lines = [
         _("l1_branch_mode", lang, branch=branch_name, code=bhm_code),
         _("l1_branch_reqs", lang, count=len(requests))

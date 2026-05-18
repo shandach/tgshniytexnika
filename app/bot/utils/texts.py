@@ -122,7 +122,7 @@ TEXTS = {
     "l1_queue_region": {"ru": "📍 *Область: {region}*\n", "uz": "📍 *Viloyat: {region}*\n"},
     "l1_queue_total": {"ru": "📋 *{total} новых заявок*", "uz": "📋 *{total} ta yangi ariza*"},
     "l1_queue_priority": {"ru": "\n🔥 *Приоритетных (>{hours}ч):* {count}", "uz": "\n🔥 *Ustuvor (>{hours}s):* {count}"},
-    "l1_branch_mode": {"ru": "🏢 *Режим: {branch} ({code})*", "uz": "🏢 *Rejim: {branch} ({code})*"},
+    "l1_branch_mode": {"ru": "🏢 *Режим: {branch} (BXM номер: {code})*", "uz": "🏢 *Rejim: {branch} (BXM kodi: {code})*"},
     "l1_branch_reqs": {"ru": "📋 {count} заявок\n", "uz": "📋 {count} ta ariza\n"},
     "l1_branch_more": {"ru": "\n_...и ещё {count} заявок_", "uz": "\n_...va yana {count} ta ariza_"},
     "l1_card_req": {"ru": "{fire}*#{num}* | {type}\nУстройство: {equip} ({inv})\nФилиал: {branch} ({code})\nСотрудник: {fio} ({pos})", "uz": "{fire}*#{num}* | {type}\nUskuna: {equip} ({inv})\nFilial: {branch} ({code})\nXodim: {fio} ({pos})"},

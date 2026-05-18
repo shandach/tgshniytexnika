@@ -125,13 +125,20 @@ async def show_l2_branch(callback: CallbackQuery, state: FSMContext, session: As
         await callback.answer()
         return
 
-    branch_name = requests[0].branch_name_snapshot
+    branch = await session.get(BhmBranch, requests[0].branch_id)
+    if branch:
+        parts = [branch.region_name, branch.city_name]
+        branch_name = ", ".join([p for p in parts if p])
+    else:
+        branch_name = requests[0].branch_name_snapshot
+
     branch_lbl = "Филиал" if lang == "ru" else "Filial"
+    bxm_suffix = f" (BXM номер: {bhm_code})" if lang == "ru" else f" (BXM kodi: {bhm_code})"
     approved_lbl = "L1 одобрено" if lang == "ru" else "L1 tasdiqlagan"
     reqs_lbl = "заявок" if lang == "ru" else "ta ariza"
     
     lines = [
-        f"📍 *{branch_lbl}: {branch_name} ({bhm_code})*",
+        f"📍 *{branch_lbl}: {branch_name}{bxm_suffix}*",
         f"{approved_lbl}: {len(requests)} {reqs_lbl}\n",
     ]
 
