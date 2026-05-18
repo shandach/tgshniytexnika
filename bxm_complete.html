@@ -2223,7 +2223,7 @@
         <td><div class="type-cell"><span class="type-dot dot-${t.type}"></span><span class="type-label ${t.type}">${T_LABEL[t.type] || t.type}</span></div></td>
         <td><div class="device-name">${t.dev}</div><div class="device-inv">${t.inv}</div></td>
         <td>
-          <div class="emp-name" style="font-weight:500; font-size:13px">${[t.rn, t.city, t.bn].filter(Boolean).join(', ')}</div>
+          <div class="emp-name" style="font-weight:500; font-size:13px">${[t.rn, t.city].filter(Boolean).join(', ')}</div>
           <div class="emp-pos" style="font-size:12px;color:var(--clr-text-hint);margin-top:2px">Номер BXM: ${t.bc}</div>
         </td>
         <td><div class="emp-cell"><span class="avatar">${t.init}</span><div><div class="emp-name" style="font-weight:500">${t.emp}</div><div class="emp-pos" style="font-size:13px;color:var(--clr-text-hint);margin-top:2px">${t.pos || '—'}</div></div></div></td>

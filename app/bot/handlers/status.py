@@ -127,7 +127,7 @@ async def my_req_detail(callback: CallbackQuery, session: AsyncSession, state: F
     
     branch = await session.get(BhmBranch, req.branch_id)
     if branch:
-        parts = [branch.region_name, branch.city_name, branch.branch_name]
+        parts = [branch.region_name, branch.city_name]
         branch_info = ", ".join([p for p in parts if p])
     else:
         branch_info = req.branch_name_snapshot
