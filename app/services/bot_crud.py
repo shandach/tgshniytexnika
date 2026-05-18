@@ -184,7 +184,19 @@ async def create_request(
 
 async def get_requests_by_tg_account(session: AsyncSession, tg_account_id: int) -> Sequence[Request]:
     """Получает все заявки данного Telegram-аккаунта (для функции 'Статус моей заявки')."""
-    stmt = select(Request).where(Request.telegram_account_id == tg_account_id).order_by(Request.created_at.desc())
+    from sqlalchemy import case, and_, desc
+    
+    # Приоритет 0 для активных заявок на поломку, 1 для всех остальных
+    priority_expr = case(
+        (and_(Request.request_type == "repair", Request.status != "closed"), 0),
+        else_=1
+    )
+    
+    stmt = (
+        select(Request)
+        .where(Request.telegram_account_id == tg_account_id)
+        .order_by(priority_expr, Request.created_at.desc())
+    )
     result = await session.execute(stmt)
     return result.scalars().all()
 
