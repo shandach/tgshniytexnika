@@ -29,8 +29,8 @@ TEXTS = {
     "err_bhm_invalid": {"ru": "Пожалуйста, введите корректный 5-значный числовой код (например, 11200).", "uz": "Iltimos, to'g'ri 5 xonali raqamli kodni kiriting (masalan, 11200)."},
     "err_bhm_not_found": {"ru": "Филиал с таким кодом не найден. Проверьте код и попробуйте снова:", "uz": "Bunday kodli filial topilmadi. Kodni tekshirib, qaytadan urinib ko'ring:"},
     "msg_bhm_found": {
-        "ru": "✅ Филиал успешно найден:\n🏢 **{branch}**\n📍 {region}, {city}\n\nВыберите нужное действие в меню ниже 👇",
-        "uz": "✅ Filial muvaffaqiyatli topildi:\n🏢 **{branch}**\n📍 {region}, {city}\n\nQuyidagi menyudan kerakli amalni tanlang 👇"
+        "ru": "✅ Филиал успешно найден:\n🏢 **{region}, {city}**\n\nВыберите нужное действие в меню ниже 👇",
+        "uz": "✅ Filial muvaffaqiyatli topildi:\n🏢 **{region}, {city}**\n\nQuyidagi menyudan kerakli amalni tanlang 👇"
     },
 
     # Сообщения FSM заявок
