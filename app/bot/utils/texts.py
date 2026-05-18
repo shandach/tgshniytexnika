@@ -134,7 +134,7 @@ TEXTS = {
     "lbl_replacement": {"ru": "Замена", "uz": "Almashtirish"},
     "lbl_new_issue": {"ru": "Новая выдача", "uz": "Yangi ajratish"},
     "lbl_repair": {"ru": "Поломка", "uz": "Buzilish"},
-    "lbl_computer": {"ru": "ПК", "uz": "ShK"},
+    "lbl_computer": {"ru": "ПК", "uz": "Kompyuter"},
     "lbl_printer": {"ru": "Принтер", "uz": "Printer"}
 }
 

@@ -190,6 +190,7 @@ async def show_l2_detail(callback: CallbackQuery, state: FSMContext, session: As
         branch_info = req.branch_name_snapshot
 
     bxm_num_label = "Номер BXM: " if lang == "ru" else "BXM raqami: "
+    inv_label = "Инвентарный номер: " if lang == "ru" else "Inventar raqami: "
 
     text = (
         f"{idx + 1} из {len(requests)} | *#{req.request_number}*\n" if lang == "ru" else f"{len(requests)} tadan {idx + 1} | *#{req.request_number}*\n"
@@ -203,7 +204,7 @@ async def show_l2_detail(callback: CallbackQuery, state: FSMContext, session: As
     ) + (
         f"{bxm_num_label}{req.bhm_code_snapshot}\n"
     ) + (
-        f"Устройство: {equip} / {inv}\n" if lang == "ru" else f"Uskuna: {equip} / {inv}\n"
+        f"Устройство: {equip}\n{inv_label}{inv}\n" if lang == "ru" else f"Uskuna: {equip}\n{inv_label}{inv}\n"
     ) + (
         f"\nL1 комментарий: _{l1_comment}_" if lang == "ru" else f"\nL1 izohi: _{l1_comment}_"
     )

@@ -343,8 +343,7 @@ async def _show_compact_card(callback: CallbackQuery, sorted_reqs, idx: int, ses
     fire = "🔥 " if _is_priority(req.created_at) else ""
     age = _age_short(req.created_at)
     equip = _("lbl_" + req.equipment_type, lang) if req.equipment_type in ["computer", "printer"] else req.equipment_type
-    inv = req.inventory_code_snapshot or ""
-    inv_str = f" {inv}" if inv else ""
+    inv = req.inventory_code_snapshot or "—"
     reason = req.reason_text or req.problem_text or "—"
     r_type = _("lbl_" + req.request_type, lang) if req.request_type in ["replacement", "new_issue", "repair"] else req.request_type
 
@@ -356,13 +355,15 @@ async def _show_compact_card(callback: CallbackQuery, sorted_reqs, idx: int, ses
         branch_info = req.branch_name_snapshot
 
     bxm_num_label = "Номер BXM: " if lang == "ru" else "BXM raqami: "
+    inv_label = "Инвентарный номер: " if lang == "ru" else "Inventar raqami: "
 
     text = (
         f"{fire}*#{req.request_number}* | {r_type}\n"
         f"👤 {req.employee_fio_snapshot} · {req.employee_position_snapshot or '—'}\n"
         f"🏢 {branch_info}\n"
         f"🔢 {bxm_num_label}{req.bhm_code_snapshot}\n"
-        f"💻 {equip}{inv_str}\n"
+        f"💻 {equip}\n"
+        f"🆔 {inv_label}{inv}\n"
         f"⏱ {age} · 📄 {idx + 1}/{total}\n"
         f"\n💬 _{reason}_"
     )
@@ -437,9 +438,8 @@ async def show_branch_detail(callback: CallbackQuery, state: FSMContext, session
     req = sorted_reqs[idx]
     fire = "🔥 " if _is_priority(req.created_at) else ""
     age = _age_short(req.created_at)
-    equip = EQUIP_LABELS.get(req.equipment_type, req.equipment_type)
-    inv = req.inventory_code_snapshot or ""
-    inv_str = f" {inv}" if inv else ""
+    equip = _("lbl_" + req.equipment_type, lang) if req.equipment_type in ["computer", "printer"] else req.equipment_type
+    inv = req.inventory_code_snapshot or "—"
     reason = req.reason_text or req.problem_text or "—"
 
     branch = await session.get(BhmBranch, req.branch_id)
@@ -450,13 +450,15 @@ async def show_branch_detail(callback: CallbackQuery, state: FSMContext, session
         branch_info = req.branch_name_snapshot
 
     bxm_num_label = "Номер BXM: " if lang == "ru" else "BXM raqami: "
+    inv_label = "Инвентарный номер: " if lang == "ru" else "Inventar raqami: "
 
     text = (
         f"{fire}*#{req.request_number}* | {TYPE_LABELS.get(req.request_type, req.request_type)}\n"
         f"👤 {req.employee_fio_snapshot} · {req.employee_position_snapshot or '—'}\n"
         f"🏢 {branch_info}\n"
         f"🔢 {bxm_num_label}{req.bhm_code_snapshot}\n"
-        f"💻 {equip}{inv_str}\n"
+        f"💻 {equip}\n"
+        f"🆔 {inv_label}{inv}\n"
         f"⏱ {age} · 📄 {idx + 1}/{total}\n"
         f"\n💬 _{reason}_"
     )

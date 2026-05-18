@@ -288,7 +288,7 @@ async def finalize_request(message: Message, state: FSMContext, session: AsyncSe
             if lang == "ru":
                 msg_text = f"❌ *Ваша заявка #{req.request_number} отклонена!*\n\nЗамена ПК невозможна, так как компьютеру менее 5 лет (год выпуска: {inventory.issue_year})."
             else:
-                msg_text = f"❌ *Arizangiz #{req.request_number} rad etildi!*\n\nShK 5 yildan kam bo'lganligi sababli (ishlab chiqarilgan yili: {inventory.issue_year}) almashtirish mumkin emas."
+                msg_text = f"❌ *Arizangiz #{req.request_number} rad etildi!* \n\nKompyuter 5 yildan kam bo'lganligi sababli (ishlab chiqarilgan yili: {inventory.issue_year}) almashtirish mumkin emas."
         elif is_auto_approved:
             if lang == "ru":
                 msg_text = f"✅ *Ваша заявка #{req.request_number} АВТОМАТИЧЕСКИ ОДОБРЕНА!*\n\nВашему ПК 5 лет и более. Заявка сразу направлена в отдел выдачи."
