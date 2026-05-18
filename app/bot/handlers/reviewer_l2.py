@@ -194,7 +194,7 @@ async def show_l2_detail(callback: CallbackQuery, state: FSMContext, session: As
     buttons = [
         [
             InlineKeyboardButton(text=_("btn_confirm", lang), callback_data=f"l2_approve_{req.id}_{bhm_code}_{idx}"),
-            InlineKeyboardButton(text=_("btn_reject", lang), callback_data=f"l2_reject_{req.id}_{bhm_code}"),
+            InlineKeyboardButton(text=_("btn_reject", lang), callback_data=f"l2_reject_{req.id}_{bhm_code}_{idx}"),
         ],
     ]
     if idx + 1 < len(requests):
@@ -265,12 +265,14 @@ async def l2_reject_one(callback: CallbackQuery, state: FSMContext, session: Asy
     parts = callback.data.replace("l2_reject_", "").split("_")
     req_id = parts[0]
     bhm_code = parts[1]
+    
+    idx = parts[2] if len(parts) > 2 else "0"
 
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text=_("btn_l2_rj_no_confirm", lang), callback_data=f"l2_rj_{req_id}_{bhm_code}_no_confirm")],
         [InlineKeyboardButton(text=_("btn_l2_rj_in_progress", lang), callback_data=f"l2_rj_{req_id}_{bhm_code}_in_progress")],
         [InlineKeyboardButton(text=_("btn_l2_rj_no_priority", lang), callback_data=f"l2_rj_{req_id}_{bhm_code}_no_priority")],
-        [InlineKeyboardButton(text=_("btn_nav_prev", lang), callback_data=f"l2_branch_{bhm_code}")],
+        [InlineKeyboardButton(text=_("btn_nav_prev", lang), callback_data=f"l2_detail_branch_{bhm_code}_{idx}")],
     ])
     await callback.message.edit_text(_("l1_choose_rj_reason", lang), reply_markup=kb)
     await callback.answer()

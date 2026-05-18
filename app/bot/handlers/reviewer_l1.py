@@ -359,7 +359,7 @@ async def _show_compact_card(callback: CallbackQuery, sorted_reqs, idx: int, ses
     buttons = [
         [
             InlineKeyboardButton(text=_("btn_approve", lang), callback_data=f"l1_approve_{req.id}"),
-            InlineKeyboardButton(text=_("btn_reject", lang), callback_data=f"l1_reject_{req.id}"),
+            InlineKeyboardButton(text=_("btn_reject", lang), callback_data=f"l1_reject_{req.id}|{idx}|{back_cb}"),
         ],
     ]
 
@@ -441,7 +441,7 @@ async def show_branch_detail(callback: CallbackQuery, state: FSMContext, session
     buttons = [
         [
             InlineKeyboardButton(text=_("btn_approve", lang), callback_data=f"l1_approve_{req.id}"),
-            InlineKeyboardButton(text=_("btn_reject", lang), callback_data=f"l1_reject_{req.id}"),
+            InlineKeyboardButton(text=_("btn_reject", lang), callback_data=f"l1_reject_{req.id}|{idx}|l1_branch_{bhm_code}"),
         ],
     ]
     nav_row = []
@@ -512,12 +512,25 @@ async def reject_request(callback: CallbackQuery, state: FSMContext, session: As
     # Защита от l1_reject_all_
     if callback.data.startswith("l1_reject_all_"):
         return
-    req_id = callback.data.replace("l1_reject_", "")
+        
+    parts = callback.data.replace("l1_reject_", "").split("|")
+    req_id = parts[0]
+    
+    if len(parts) >= 3:
+        idx = parts[1]
+        back_cb = parts[2]
+        if back_cb.startswith("l1_branch_"):
+            bhm_code = back_cb.replace("l1_branch_", "")
+            back_data = f"l1_br_detail_{bhm_code}_{idx}"
+        else:
+            back_data = f"l1_nav_{idx}_{back_cb}"
+    else:
+        back_data = f"l1_detail_{req_id}"
 
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text=_("btn_reject_reason_new", lang), callback_data=f"l1_rj_reason_{req_id}_new_tech")],
         [InlineKeyboardButton(text=_("btn_reject_reason_crit", lang), callback_data=f"l1_rj_reason_{req_id}_criteria")],
-        [InlineKeyboardButton(text=_("btn_nav_prev", lang), callback_data=f"l1_detail_{req_id}")],
+        [InlineKeyboardButton(text=_("btn_nav_prev", lang), callback_data=back_data)],
     ])
     await _safe_edit(callback, _("l1_choose_rj_reason", lang), kb, parse_mode=None)
 
