@@ -176,18 +176,40 @@ async def notify_l1_escalation(bot: Bot, session: AsyncSession, request: Request
         l1_ids = await _get_l1_ids_by_region(session, region)
     if not l1_ids:
         l1_ids = await _get_tg_ids_by_role(session, TgRole.reviewer_l1)
+        
+    if not l1_ids:
+        return
 
-    equip = "Компьютер" if request.equipment_type == "computer" else "Принтер"
-    text = (
-        f"🔴 *Эскалация по ремонту!*\n\n"
-        f"Заявка: #{request.request_number}\n"
-        f"Филиал: {request.branch_name_snapshot} ({request.bhm_code_snapshot})\n"
-        f"Сотрудник: {request.employee_fio_snapshot}\n"
-        f"Техника: {equip} ({request.inventory_code_snapshot})\n\n"
-        f"📝 *Комментарий сотрудника:*\n_{comment}_"
+    # Получаем языки проверяющих
+    stmt_lang = select(TelegramAccount.telegram_user_id, TelegramAccount.language).where(
+        TelegramAccount.telegram_user_id.in_(l1_ids)
     )
+    langs = dict((await session.execute(stmt_lang)).all())
 
     for tg_id in l1_ids:
+        lang = langs.get(tg_id, "ru")
+        
+        if lang == "uz":
+            equip = "Kompyuter" if request.equipment_type == "computer" else "Printer"
+            text = (
+                f"🔴 *Ta'mirlash bo'yicha eskalatsiya!*\n\n"
+                f"Ariza: #{request.request_number}\n"
+                f"Filial: {request.branch_name_snapshot} ({request.bhm_code_snapshot})\n"
+                f"Xodim: {request.employee_fio_snapshot}\n"
+                f"Texnika: {equip} ({request.inventory_code_snapshot})\n\n"
+                f"📝 *Xodimning izohi:*\n_{comment}_"
+            )
+        else:
+            equip = "Компьютер" if request.equipment_type == "computer" else "Принтер"
+            text = (
+                f"🔴 *Эскалация по ремонту!*\n\n"
+                f"Заявка: #{request.request_number}\n"
+                f"Филиал: {request.branch_name_snapshot} ({request.bhm_code_snapshot})\n"
+                f"Сотрудник: {request.employee_fio_snapshot}\n"
+                f"Техника: {equip} ({request.inventory_code_snapshot})\n\n"
+                f"📝 *Комментарий сотрудника:*\n_{comment}_"
+            )
+
         try:
             await bot.send_message(tg_id, text, parse_mode="Markdown")
         except Exception as e:
@@ -213,3 +235,56 @@ async def notify_l2_sla_breach(bot: Bot, session: AsyncSession, request: Request
             await bot.send_message(tg_id, text, parse_mode="Markdown")
         except Exception as e:
             logger.error(f"Не удалось отправить SLA alert L2 (tg_id={tg_id}): {e}")
+
+
+async def notify_reviewers_repair_closed(bot: Bot, session: AsyncSession, request: Request):
+    """Уведомить L1 и L2, что сотрудник подтвердил починку техники."""
+    from app.models.branch import BhmBranch
+    stmt = select(BhmBranch.region_name).where(BhmBranch.id == request.branch_id)
+    region = await session.scalar(stmt)
+
+    l1_ids = []
+    if region:
+        l1_ids = await _get_l1_ids_by_region(session, region)
+    if not l1_ids:
+        l1_ids = await _get_tg_ids_by_role(session, TgRole.reviewer_l1)
+    
+    l2_ids = await _get_tg_ids_by_role(session, TgRole.reviewer_l2)
+    all_reviewer_ids = list(set(l1_ids + l2_ids))
+    
+    if not all_reviewer_ids:
+        return
+
+    # Получаем языки проверяющих
+    stmt_lang = select(TelegramAccount.telegram_user_id, TelegramAccount.language).where(
+        TelegramAccount.telegram_user_id.in_(all_reviewer_ids)
+    )
+    langs = dict((await session.execute(stmt_lang)).all())
+
+    for tg_id in all_reviewer_ids:
+        lang = langs.get(tg_id, "ru")
+        equip = "Компьютер" if request.equipment_type == "computer" else "Принтер"
+        if lang == "uz":
+            equip = "Kompyuter" if request.equipment_type == "computer" else "Printer"
+            text = (
+                f"✅ *Ta'mirlash tasdiqlandi!*\n\n"
+                f"Ariza #{request.request_number} yopildi.\n"
+                f"Filial: {request.branch_name_snapshot} ({request.bhm_code_snapshot})\n"
+                f"Xodim: {request.employee_fio_snapshot}\n"
+                f"Texnika: {equip} ({request.inventory_code_snapshot})\n\n"
+                f"Xodim texnika ishlashini tasdiqladi."
+            )
+        else:
+            text = (
+                f"✅ *Починка подтверждена!*\n\n"
+                f"Заявка #{request.request_number} закрыта.\n"
+                f"Филиал: {request.branch_name_snapshot} ({request.bhm_code_snapshot})\n"
+                f"Сотрудник: {request.employee_fio_snapshot}\n"
+                f"Техника: {equip} ({request.inventory_code_snapshot})\n\n"
+                f"Сотрудник подтвердил, что техника работает."
+            )
+            
+        try:
+            await bot.send_message(tg_id, text, parse_mode="Markdown")
+        except Exception as e:
+            logger.error(f"Failed to notify reviewer about repair confirmation (tg_id={tg_id}): {e}")

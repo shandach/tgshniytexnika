@@ -178,6 +178,12 @@ async def repair_confirmed_yes(callback: CallbackQuery, session: AsyncSession, s
         req.final_decision = "repaired"
         await session.commit()
         
+        try:
+            from app.services.notifications import notify_reviewers_repair_closed
+            await notify_reviewers_repair_closed(callback.bot, session, req)
+        except Exception as e:
+            logger.error(f"Failed to notify reviewers: {e}")
+        
         msg = f"✅ *Супер!* Рады слышать, что всё работает.\n\nЗаявка #{req.request_number} успешно закрыта." if lang == "ru" else f"✅ *Zo'r!* Hammasi ishlayotganidan xursandmiz.\n\nAriza #{req.request_number} muvaffaqiyatli yopildi."
         btn_back = _("btn_back_list", lang)
         

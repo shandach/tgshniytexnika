@@ -112,6 +112,7 @@ class Request(Base):
         onupdate=sa.func.now(),
         nullable=False,
     )
+    last_notified_at = sa.Column(sa.DateTime(timezone=True), nullable=True)
     closed_at = sa.Column(sa.DateTime(timezone=True), nullable=True)
 
     # ── Relationships ────────────────────────────────────────────────
