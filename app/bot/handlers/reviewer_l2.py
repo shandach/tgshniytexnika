@@ -86,7 +86,7 @@ async def show_l2_queue(event, state: FSMContext, session: AsyncSession):
             await event.answer(text, reply_markup=get_reviewer_l2_menu_kb())
         return
 
-    total = sum(r[2] for r in rows)
+    total = sum(count for bhm_code, city_name, snap_name, count in rows)
     header = f"📋 *Ожидающие подтверждения L2: {total}*\n" if lang == "ru" else f"📋 *L2 tasdiqlashini kutayotganlar: {total}*\n"
     lines = [header]
 

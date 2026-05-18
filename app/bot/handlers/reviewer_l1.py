@@ -258,7 +258,7 @@ async def show_branches(event, state: FSMContext, session: AsyncSession):
             await event.answer(text, reply_markup=get_reviewer_l1_menu_kb("branch", lang))
         return
 
-    total = sum(r[2] for r in rows)
+    total = sum(count for bhm_code, city_name, snap_name, count in rows)
     buttons = []
     for bhm_code, city_name, snap_name, count in rows:
         name = city_name or snap_name
