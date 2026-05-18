@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.services.bot_crud import get_requests_by_tg_account, get_or_create_tg_account
 from app.models.request import Request, RequestStatus
+from app.models.branch import BhmBranch
 from app.bot.utils.texts import _, get_text_variants
 
 logger = logging.getLogger(__name__)
@@ -124,11 +125,21 @@ async def my_req_detail(callback: CallbackQuery, session: AsyncSession, state: F
     branch_word = "Филиал" if lang == "ru" else "Filial"
     status_word = "Статус" if lang == "ru" else "Holati"
     
+    branch = await session.get(BhmBranch, req.branch_id)
+    if branch:
+        parts = [branch.region_name, branch.city_name, branch.branch_name]
+        branch_info = ", ".join([p for p in parts if p])
+    else:
+        branch_info = req.branch_name_snapshot
+
+    bxm_num_label = "Номер BXM" if lang == "ru" else "BXM raqami"
+
     text = (
         f"📄 *{req_word} #{req.request_number}*\n\n"
         f"🔸 *{type_word}:* {r_type}\n"
         f"🔸 *{tech_word}:* {type_text}\n"
-        f"🔸 *{branch_word}:* {req.branch_name_snapshot} ({req.bhm_code_snapshot})\n"
+        f"🔸 *{branch_word}:* {branch_info}\n"
+        f"🔸 *{bxm_num_label}:* {req.bhm_code_snapshot}\n"
         f"🔸 *{status_word}:* {status_h}\n"
     )
     if req.inventory_code_snapshot:

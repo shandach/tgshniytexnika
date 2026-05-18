@@ -86,7 +86,10 @@ async def get_tickets(
       &from=2025-04-01&to=2025-04-30 — по дате создания
       &q=поиск — по номеру заявки, ФИО или названию филиала
     """
-    stmt = select(Request).order_by(Request.created_at.desc()).options(selectinload(Request.inventory))
+    stmt = select(Request).order_by(Request.created_at.desc()).options(
+        selectinload(Request.inventory),
+        selectinload(Request.branch)
+    )
 
     filters = []
     if branch:
@@ -118,9 +121,16 @@ async def get_tickets(
     for r in rows:
         ui_type = _ui_type(r.request_type)
         device = "Принтер" if r.equipment_type == "printer" else "Компьютер"
+        
+        region_name = r.branch.region_name if r.branch else ""
+        city_name = r.branch.city_name if r.branch else ""
+        clean_bn = r.branch.branch_name if r.branch else r.branch_name_snapshot
+        
         tickets.append({
             "id": r.id,
-            "bn": r.branch_name_snapshot,
+            "rn": region_name,
+            "city": city_name,
+            "bn": clean_bn,
             "bc": r.bhm_code_snapshot,
             "lt": "",  # будет заполнено фронтом из BRANCHES
             "type": ui_type,

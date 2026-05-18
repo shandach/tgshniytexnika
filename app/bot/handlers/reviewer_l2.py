@@ -19,6 +19,7 @@ from aiogram.fsm.context import FSMContext
 from app.bot.utils.texts import _, get_text_variants
 from app.bot.keyboards.default import get_reviewer_l2_menu_kb
 from app.models.request import Request, RequestStatus, FinalDecision
+from app.models.branch import BhmBranch
 
 logger = logging.getLogger(__name__)
 router = Router()
@@ -178,13 +179,26 @@ async def show_l2_detail(callback: CallbackQuery, state: FSMContext, session: As
     l1_comment = req.l1_comment or "—"
     r_type = _("lbl_" + req.request_type, lang) if req.request_type in ["replacement", "new_issue", "repair"] else req.request_type
 
+    branch = await session.get(BhmBranch, req.branch_id)
+    if branch:
+        parts = [branch.region_name, branch.city_name, branch.branch_name]
+        branch_info = ", ".join([p for p in parts if p])
+    else:
+        branch_info = req.branch_name_snapshot
+
+    bxm_num_label = "Номер BXM: " if lang == "ru" else "BXM raqami: "
+
     text = (
-        f"{idx + 1} из {len(requests)} | *#{req.request_number}* — {bhm_code}\n" if lang == "ru" else f"{len(requests)} tadan {idx + 1} | *#{req.request_number}* — {bhm_code}\n"
+        f"{idx + 1} из {len(requests)} | *#{req.request_number}*\n" if lang == "ru" else f"{len(requests)} tadan {idx + 1} | *#{req.request_number}*\n"
     ) + (
         f"━━━━━━━━━━━━━━━━━━\n"
         f"Тип: {r_type}\n" if lang == "ru" else f"━━━━━━━━━━━━━━━━━━\nTuri: {r_type}\n"
     ) + (
         f"Сотрудник: {req.employee_fio_snapshot} / {req.employee_position_snapshot or '—'}\n" if lang == "ru" else f"Xodim: {req.employee_fio_snapshot} / {req.employee_position_snapshot or '—'}\n"
+    ) + (
+        f"Филиал: {branch_info}\n" if lang == "ru" else f"Filial: {branch_info}\n"
+    ) + (
+        f"{bxm_num_label}{req.bhm_code_snapshot}\n"
     ) + (
         f"Устройство: {equip} / {inv}\n" if lang == "ru" else f"Uskuna: {equip} / {inv}\n"
     ) + (

@@ -347,10 +347,21 @@ async def _show_compact_card(callback: CallbackQuery, sorted_reqs, idx: int, ses
     reason = req.reason_text or req.problem_text or "—"
     r_type = _("lbl_" + req.request_type, lang) if req.request_type in ["replacement", "new_issue", "repair"] else req.request_type
 
+    branch = await session.get(BhmBranch, req.branch_id)
+    if branch:
+        parts = [branch.region_name, branch.city_name, branch.branch_name]
+        branch_info = ", ".join([p for p in parts if p])
+    else:
+        branch_info = req.branch_name_snapshot
+
+    bxm_num_label = "Номер BXM: " if lang == "ru" else "BXM raqami: "
+
     text = (
         f"{fire}*#{req.request_number}* | {r_type}\n"
         f"👤 {req.employee_fio_snapshot} · {req.employee_position_snapshot or '—'}\n"
-        f"🏢 {req.branch_name_snapshot} ({req.bhm_code_snapshot}) · {equip}{inv_str}\n"
+        f"🏢 {branch_info}\n"
+        f"🔢 {bxm_num_label}{req.bhm_code_snapshot}\n"
+        f"💻 {equip}{inv_str}\n"
         f"⏱ {age} · 📄 {idx + 1}/{total}\n"
         f"\n💬 _{reason}_"
     )
@@ -430,10 +441,21 @@ async def show_branch_detail(callback: CallbackQuery, state: FSMContext, session
     inv_str = f" {inv}" if inv else ""
     reason = req.reason_text or req.problem_text or "—"
 
+    branch = await session.get(BhmBranch, req.branch_id)
+    if branch:
+        parts = [branch.region_name, branch.city_name, branch.branch_name]
+        branch_info = ", ".join([p for p in parts if p])
+    else:
+        branch_info = req.branch_name_snapshot
+
+    bxm_num_label = "Номер BXM: " if lang == "ru" else "BXM raqami: "
+
     text = (
         f"{fire}*#{req.request_number}* | {TYPE_LABELS.get(req.request_type, req.request_type)}\n"
         f"👤 {req.employee_fio_snapshot} · {req.employee_position_snapshot or '—'}\n"
-        f"🏢 {req.branch_name_snapshot} ({req.bhm_code_snapshot}) · {equip}{inv_str}\n"
+        f"🏢 {branch_info}\n"
+        f"🔢 {bxm_num_label}{req.bhm_code_snapshot}\n"
+        f"💻 {equip}{inv_str}\n"
         f"⏱ {age} · 📄 {idx + 1}/{total}\n"
         f"\n💬 _{reason}_"
     )
