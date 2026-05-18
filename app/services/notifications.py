@@ -38,6 +38,16 @@ async def _get_l1_ids_by_region(session: AsyncSession, region_name: str) -> list
     return list(result.all())
 
 
+async def _get_clean_branch_info(session: AsyncSession, branch_id: int, snapshot_name: str) -> str:
+    """Получить чистую информацию о филиале (Регион, Город BXM)."""
+    from app.models.branch import BhmBranch
+    branch = await session.get(BhmBranch, branch_id)
+    if branch:
+        parts = [branch.region_name, f"{branch.city_name} BXM" if branch.city_name else None]
+        return ", ".join([p for p in parts if p])
+    return snapshot_name
+
+
 async def notify_l1_new_request(bot: Bot, session: AsyncSession, request: Request):
     """Уведомить L1-проверяющего области о новой заявке."""
     # Определяем область филиала заявки
@@ -45,23 +55,22 @@ async def notify_l1_new_request(bot: Bot, session: AsyncSession, request: Reques
     stmt = select(BhmBranch.region_name).where(BhmBranch.id == request.branch_id)
     region = await session.scalar(stmt)
 
-    # Ищем L1 проверяющих этой области
+    # Ищем L1 проверяющих этой области (СТРОГО без fallback!)
     l1_ids = []
     if region:
         l1_ids = await _get_l1_ids_by_region(session, region)
-    # Fallback: если нет регионального проверяющего — отправляем всем L1
     if not l1_ids:
-        l1_ids = await _get_tg_ids_by_role(session, TgRole.reviewer_l1)
-    if not l1_ids:
-        logger.warning("Нет L1-проверяющих для уведомления!")
+        logger.warning(f"Нет L1-проверяющих для региона {region}!")
         return
 
+    branch_name = await _get_clean_branch_info(session, request.branch_id, request.branch_name_snapshot)
     equip = EQUIP_LABELS.get(request.equipment_type, request.equipment_type)
     
     if request.request_type == "repair":
         text = (
             f"🛠 *Уведомление о поломке #{request.request_number}*\n\n"
-            f"Филиал: {request.branch_name_snapshot} ({request.bhm_code_snapshot})\n"
+            f"BXM: {branch_name}\n"
+            f"BXM код: {request.bhm_code_snapshot}\n"
             f"Сотрудник: {request.employee_fio_snapshot}\n"
             f"Устройство: {equip}\n\n"
             f"ℹ️ _Заявка уже в работе у специалистов. От вас действий не требуется._"
@@ -69,12 +78,12 @@ async def notify_l1_new_request(bot: Bot, session: AsyncSession, request: Reques
     else:
         text = (
             f"🔔 *Новая заявка #{request.request_number}*\n\n"
-            f"Филиал: {request.branch_name_snapshot} ({request.bhm_code_snapshot})\n"
+            f"BXM: {branch_name}\n"
+            f"BXM код: {request.bhm_code_snapshot}\n"
             f"Сотрудник: {request.employee_fio_snapshot}\n"
             f"Тип: {TYPE_LABELS.get(request.request_type, request.request_type)}\n"
             f"Устройство: {equip}"
         )
-
 
     for tg_id in l1_ids:
         try:
@@ -96,9 +105,19 @@ async def notify_l2_batch_approved(
         logger.info("Нет L2-проверяющих — уведомление пропущено")
         return
 
+    from app.models.branch import BhmBranch
+    stmt = select(BhmBranch).where(BhmBranch.bhm_code == bhm_code)
+    branch = await session.scalar(stmt)
+    if branch:
+        parts = [branch.region_name, f"{branch.city_name} BXM" if branch.city_name else None]
+        clean_bn = ", ".join([p for p in parts if p])
+    else:
+        clean_bn = branch_name
+
     text = (
         f"📬 *Новые заявки для подтверждения*\n\n"
-        f"📍 Филиал: {branch_name} ({bhm_code})\n"
+        f"BXM: {clean_bn}\n"
+        f"BXM код: {bhm_code}\n"
         f"L1 одобрено: {count} заявок\n\n"
         f"📞 _Не забудьте позвонить руководителю филиала_"
     )
@@ -112,13 +131,25 @@ async def notify_l2_batch_approved(
 
 async def notify_auto_approved_pc(bot: Bot, session: AsyncSession, request: Request):
     """Уведомить L1 и L2 об автоматическом одобрении замены ПК (>= 5 лет)."""
-    l1_ids = await _get_tg_ids_by_role(session, TgRole.reviewer_l1)
+    # L1 — СТРОГО только своей области
+    from app.models.branch import BhmBranch
+    stmt = select(BhmBranch.region_name).where(BhmBranch.id == request.branch_id)
+    region = await session.scalar(stmt)
+    
+    l1_ids = []
+    if region:
+        l1_ids = await _get_l1_ids_by_region(session, region)
+        
+    # L2 — глобально
     l2_ids = await _get_tg_ids_by_role(session, TgRole.reviewer_l2)
     
+    branch_name = await _get_clean_branch_info(session, request.branch_id, request.branch_name_snapshot)
+
     text = (
         f"🤖 *АВТО-ОДОБРЕНИЕ (Срок службы истек)*\n\n"
         f"Заявка #{request.request_number}\n"
-        f"Филиал: {request.branch_name_snapshot} ({request.bhm_code_snapshot})\n"
+        f"BXM: {branch_name}\n"
+        f"BXM код: {request.bhm_code_snapshot}\n"
         f"Сотрудник: {request.employee_fio_snapshot}\n"
         f"Инвентарный код: {request.inventory_code_snapshot}\n"
         f"✅ *Заявка направлена в отдел выдачи.*"
@@ -171,13 +202,12 @@ async def notify_l1_escalation(bot: Bot, session: AsyncSession, request: Request
     stmt = select(BhmBranch.region_name).where(BhmBranch.id == request.branch_id)
     region = await session.scalar(stmt)
 
+    # Ищем L1 проверяющих этой области (СТРОГО без fallback!)
     l1_ids = []
     if region:
         l1_ids = await _get_l1_ids_by_region(session, region)
     if not l1_ids:
-        l1_ids = await _get_tg_ids_by_role(session, TgRole.reviewer_l1)
-        
-    if not l1_ids:
+        logger.warning(f"Нет L1-проверяющих для региона {region}!")
         return
 
     # Получаем языки проверяющих
@@ -185,6 +215,8 @@ async def notify_l1_escalation(bot: Bot, session: AsyncSession, request: Request
         TelegramAccount.telegram_user_id.in_(l1_ids)
     )
     langs = dict((await session.execute(stmt_lang)).all())
+
+    branch_name = await _get_clean_branch_info(session, request.branch_id, request.branch_name_snapshot)
 
     for tg_id in l1_ids:
         lang = langs.get(tg_id, "ru")
@@ -194,7 +226,8 @@ async def notify_l1_escalation(bot: Bot, session: AsyncSession, request: Request
             text = (
                 f"🔴 *Ta'mirlash bo'yicha eskalatsiya!*\n\n"
                 f"Ariza: #{request.request_number}\n"
-                f"Filial: {request.branch_name_snapshot} ({request.bhm_code_snapshot})\n"
+                f"BXM: {branch_name}\n"
+                f"BXM kodi: {request.bhm_code_snapshot}\n"
                 f"Xodim: {request.employee_fio_snapshot}\n"
                 f"Texnika: {equip} ({request.inventory_code_snapshot})\n\n"
                 f"📝 *Xodimning izohi:*\n_{comment}_"
@@ -204,7 +237,8 @@ async def notify_l1_escalation(bot: Bot, session: AsyncSession, request: Request
             text = (
                 f"🔴 *Эскалация по ремонту!*\n\n"
                 f"Заявка: #{request.request_number}\n"
-                f"Филиал: {request.branch_name_snapshot} ({request.bhm_code_snapshot})\n"
+                f"BXM: {branch_name}\n"
+                f"BXM код: {request.bhm_code_snapshot}\n"
                 f"Сотрудник: {request.employee_fio_snapshot}\n"
                 f"Техника: {equip} ({request.inventory_code_snapshot})\n\n"
                 f"📝 *Комментарий сотрудника:*\n_{comment}_"
@@ -219,12 +253,16 @@ async def notify_l1_escalation(bot: Bot, session: AsyncSession, request: Request
 async def notify_l2_sla_breach(bot: Bot, session: AsyncSession, request: Request, hours_passed: float):
     """Уведомляет L2 об истечении SLA (заявка висит более 24 раб. часов)."""
     l2_ids = await _get_tg_ids_by_role(session, TgRole.reviewer_l2)
-    
+    if not l2_ids:
+        return
+        
+    branch_name = await _get_clean_branch_info(session, request.branch_id, request.branch_name_snapshot)
     equip = "Компьютер" if request.equipment_type == "computer" else "Принтер"
     text = (
         f"🚨 *SLA НАРУШЕН (Более {hours_passed} раб. часов)*\n\n"
         f"Заявка #{request.request_number} на ремонт висит без ответа пользователя!\n"
-        f"Филиал: {request.branch_name_snapshot} ({request.bhm_code_snapshot})\n"
+        f"BXM: {branch_name}\n"
+        f"BXM код: {request.bhm_code_snapshot}\n"
         f"Сотрудник: {request.employee_fio_snapshot}\n"
         f"Техника: {equip} ({request.inventory_code_snapshot})\n\n"
         f"⚡ Свяжитесь с сотрудником или IT-отделом для закрытия заявки."
@@ -243,11 +281,10 @@ async def notify_reviewers_repair_closed(bot: Bot, session: AsyncSession, reques
     stmt = select(BhmBranch.region_name).where(BhmBranch.id == request.branch_id)
     region = await session.scalar(stmt)
 
+    # Ищем L1 проверяющих этой области (СТРОГО без fallback!)
     l1_ids = []
     if region:
         l1_ids = await _get_l1_ids_by_region(session, region)
-    if not l1_ids:
-        l1_ids = await _get_tg_ids_by_role(session, TgRole.reviewer_l1)
     
     l2_ids = await _get_tg_ids_by_role(session, TgRole.reviewer_l2)
     all_reviewer_ids = list(set(l1_ids + l2_ids))
@@ -261,6 +298,8 @@ async def notify_reviewers_repair_closed(bot: Bot, session: AsyncSession, reques
     )
     langs = dict((await session.execute(stmt_lang)).all())
 
+    branch_name = await _get_clean_branch_info(session, request.branch_id, request.branch_name_snapshot)
+
     for tg_id in all_reviewer_ids:
         lang = langs.get(tg_id, "ru")
         equip = "Компьютер" if request.equipment_type == "computer" else "Принтер"
@@ -269,7 +308,8 @@ async def notify_reviewers_repair_closed(bot: Bot, session: AsyncSession, reques
             text = (
                 f"✅ *Ta'mirlash tasdiqlandi!*\n\n"
                 f"Ariza #{request.request_number} yopildi.\n"
-                f"Filial: {request.branch_name_snapshot} ({request.bhm_code_snapshot})\n"
+                f"BXM: {branch_name}\n"
+                f"BXM kodi: {request.bhm_code_snapshot}\n"
                 f"Xodim: {request.employee_fio_snapshot}\n"
                 f"Texnika: {equip} ({request.inventory_code_snapshot})\n\n"
                 f"Xodim texnika ishlashini tasdiqladi."
@@ -278,7 +318,8 @@ async def notify_reviewers_repair_closed(bot: Bot, session: AsyncSession, reques
             text = (
                 f"✅ *Починка подтверждена!*\n\n"
                 f"Заявка #{request.request_number} закрыта.\n"
-                f"Филиал: {request.branch_name_snapshot} ({request.bhm_code_snapshot})\n"
+                f"BXM: {branch_name}\n"
+                f"BXM код: {request.bhm_code_snapshot}\n"
                 f"Сотрудник: {request.employee_fio_snapshot}\n"
                 f"Техника: {equip} ({request.inventory_code_snapshot})\n\n"
                 f"Сотрудник подтвердил, что техника работает."
