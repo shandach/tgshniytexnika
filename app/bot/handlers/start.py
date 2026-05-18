@@ -89,7 +89,7 @@ async def process_bhm_code(message: Message, state: FSMContext, session: AsyncSe
     await session.commit()
     
     # Выводим главное меню
-    msg = _("msg_bhm_found", lang, branch=branch.branch_name, region=branch.region_name, city=branch.city_name)
+    msg = _("msg_bhm_found", lang, branch=branch.branch_name, region=branch.region_name, city=f"{branch.city_name} BXM" if branch.city_name else "")
     
     await message.answer(msg, reply_markup=get_main_menu_kb(lang), parse_mode="Markdown")
     await state.set_state(None)

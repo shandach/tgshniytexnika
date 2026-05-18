@@ -67,7 +67,7 @@ async def global_fallback(message: Message, state: FSMContext, session: AsyncSes
             msg = _("msg_bhm_found", lang,
                     branch=branch.branch_name,
                     region=branch.region_name,
-                    city=branch.city_name)
+                    city=f"{branch.city_name} BXM" if branch.city_name else "")
             await message.answer(msg, reply_markup=get_main_menu_kb(lang), parse_mode="Markdown")
             return
 

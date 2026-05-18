@@ -261,7 +261,7 @@ async def show_branches(event, state: FSMContext, session: AsyncSession):
     total = sum(count for bhm_code, city_name, snap_name, count in rows)
     buttons = []
     for bhm_code, city_name, snap_name, count in rows:
-        name = city_name or snap_name
+        name = f"{city_name} BXM" if city_name else snap_name
         buttons.append([InlineKeyboardButton(
             text=f"🏢 {name} ({count})",
             callback_data=f"l1_branch_{bhm_code}",
@@ -297,7 +297,7 @@ async def show_branch_requests(callback: CallbackQuery, state: FSMContext, sessi
 
     branch = await session.get(BhmBranch, requests[0].branch_id)
     if branch:
-        parts = [branch.region_name, branch.city_name]
+        parts = [branch.region_name, f"{branch.city_name} BXM" if branch.city_name else None]
         branch_name = ", ".join([p for p in parts if p])
     else:
         branch_name = requests[0].branch_name_snapshot
@@ -355,7 +355,7 @@ async def _show_compact_card(callback: CallbackQuery, sorted_reqs, idx: int, ses
 
     branch = await session.get(BhmBranch, req.branch_id)
     if branch:
-        parts = [branch.region_name, branch.city_name]
+        parts = [branch.region_name, f"{branch.city_name} BXM" if branch.city_name else None]
         branch_info = ", ".join([p for p in parts if p])
     else:
         branch_info = req.branch_name_snapshot
@@ -450,7 +450,7 @@ async def show_branch_detail(callback: CallbackQuery, state: FSMContext, session
 
     branch = await session.get(BhmBranch, req.branch_id)
     if branch:
-        parts = [branch.region_name, branch.city_name]
+        parts = [branch.region_name, f"{branch.city_name} BXM" if branch.city_name else None]
         branch_info = ", ".join([p for p in parts if p])
     else:
         branch_info = req.branch_name_snapshot

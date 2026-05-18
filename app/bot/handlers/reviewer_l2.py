@@ -92,7 +92,7 @@ async def show_l2_queue(event, state: FSMContext, session: AsyncSession):
 
     buttons = []
     for bhm_code, city_name, snap_name, count in rows:
-        name = city_name or snap_name
+        name = f"{city_name} BXM" if city_name else snap_name
         req_text = "заявок" if lang == "ru" else "ta ariza"
         lines.append(f"• {name} ({bhm_code}) — {count} {req_text}")
         buttons.append([InlineKeyboardButton(
@@ -127,7 +127,7 @@ async def show_l2_branch(callback: CallbackQuery, state: FSMContext, session: As
 
     branch = await session.get(BhmBranch, requests[0].branch_id)
     if branch:
-        parts = [branch.region_name, branch.city_name]
+        parts = [branch.region_name, f"{branch.city_name} BXM" if branch.city_name else None]
         branch_name = ", ".join([p for p in parts if p])
     else:
         branch_name = requests[0].branch_name_snapshot
@@ -191,7 +191,7 @@ async def show_l2_detail(callback: CallbackQuery, state: FSMContext, session: As
 
     branch = await session.get(BhmBranch, req.branch_id)
     if branch:
-        parts = [branch.region_name, branch.city_name]
+        parts = [branch.region_name, f"{branch.city_name} BXM" if branch.city_name else None]
         branch_info = ", ".join([p for p in parts if p])
     else:
         branch_info = req.branch_name_snapshot

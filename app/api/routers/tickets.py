@@ -123,7 +123,7 @@ async def get_tickets(
         device = "Принтер" if r.equipment_type == "printer" else "Компьютер"
         
         region_name = r.branch.region_name if r.branch else ""
-        city_name = r.branch.city_name if r.branch else ""
+        city_name = f"{r.branch.city_name} BXM" if r.branch and r.branch.city_name else ""
         clean_bn = r.branch.branch_name if r.branch else r.branch_name_snapshot
         
         tickets.append({
